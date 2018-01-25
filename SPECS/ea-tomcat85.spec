@@ -47,6 +47,11 @@ mkdir -p $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp -r ./* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp %{SOURCE1} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/
 
+# put logs under /var/log
+mkdir -p $RPM_BUILD_ROOT/var/log/ea-tomcat85
+rmdir $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
+ln -sf /var/log/ea-tomcat85 $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
+
 # TODO: init.d/systemd/restartsrvd stuff
 
 %clean
@@ -56,6 +61,7 @@ cp %{SOURCE1} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/
 %defattr(-,root,root,-)
 /opt/cpanel/ea-tomcat85 
 %config(noreplace) %attr(0755,root,root) /opt/cpanel/ea-tomcat85/bin/setenv.sh
+%dir /var/log/ea-tomcat85
 
 %changelog
 * Thu Jan 18 2018 Dan Muey <dan@cpanel.net> - 8.5.24-1
