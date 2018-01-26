@@ -25,6 +25,7 @@ Group:   System Environment/Daemons
 URL: http://tomcat.apache.org/
 Source: http://www-eu.apache.org/dist/tomcat/tomcat-8/v8.5.24/bin/apache-tomcat-8.5.24.tar.gz
 Source1: setenv.sh
+Source2: ea-tomcat85.logrotate
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
 
@@ -47,10 +48,14 @@ mkdir -p $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp -r ./* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp %{SOURCE1} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/
 
-# put logs under /var/log
+# put logs under /var/log ...
 mkdir -p $RPM_BUILD_ROOT/var/log/ea-tomcat85
 rmdir $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 ln -sf /var/log/ea-tomcat85 $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
+
+# ... and rotate them:
+mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
+cp %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/ea-tomcat85
 
 # TODO: init.d/systemd/restartsrvd stuff
 
@@ -62,6 +67,7 @@ ln -sf /var/log/ea-tomcat85 $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 /opt/cpanel/ea-tomcat85 
 %config(noreplace) %attr(0755,root,root) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %dir /var/log/ea-tomcat85
+/etc/logrotate.d/ea-tomcat85
 
 %changelog
 * Thu Jan 18 2018 Dan Muey <dan@cpanel.net> - 8.5.24-1

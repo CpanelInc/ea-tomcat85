@@ -1,0 +1,12 @@
+/var/log/ea-tomcat85/catalina.out
+/var/log/ea-tomcat85/catalina.err
+/var/log/ea-tomcat85/*.log
+{
+    copytruncate
+    weekly
+    rotate 52
+    compress
+    missingok
+    create 0644 tomcat nobody
+}
+
