@@ -1,0 +1,82 @@
+#!/bin/sh
+# cpanel - ea-tomcat85                           Copyright 2018 cPanel, Inc.
+#                                                           All rights Reserved.
+# copyright@cpanel.net                                         http://cpanel.net
+# This code is subject to the cPanel license. Unauthorized copying is prohibited
+#
+
+# Checkconfig Stanzas:
+# -----------------------------------------------------------------------------------
+# chkconfig: 2345 98 15
+# description: Apache Tomcat 8.5 is an open source web server and servlet container.
+# processname: /usr/bin/java
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+case $1 in
+    start)
+        file=/opt/cpanel/ea-tomcat85/bin/startup.sh
+        # no way to start tomcat
+        if [ ! -x $file ]; then
+            echo "Missing $file"
+            ERROR=1
+        else
+            # tomcat disabled by whm
+            if [ -e /etc/tomcatdisable ]; then
+                echo "Tomcat is disabled by cPanel/WHM"
+                ERROR=0
+            else
+                ERROR=0
+
+                status /usr/bin/java &>/dev/null
+
+                # tomcat already running
+                if [ $? -eq 0 ]; then
+                    echo "Tomcat already started"
+                # start tomcat, not running
+                else
+                    $file &>/dev/null
+                    sleep 1 # just to make sure
+                    status /usr/bin/java &>/dev/null
+
+                    if [ $? -eq 0 ]; then
+                        ERROR=0
+                    else
+                        echo "Failed to start Tomcat"
+                        ERROR=1
+                    fi
+                fi
+            fi
+        fi
+        ;;
+    stop)
+        file=/opt/cpanel/ea-tomcat85/bin/shutdown.sh
+        if [ ! -x $file ]; then
+            echo "Missing $file"
+            ERROR=1
+        else
+            $file
+            ERROR=0
+        fi
+        ;;
+    restart)
+        # file=/usr/local/cpanel/scripts/restartsrv_tomcat
+        #if [ ! -x $file ]; then
+        #    echo "Missing $file"
+        #    ERROR=1
+        #else
+        #    $file
+        #fi
+        echo "restartsrv_tomcat has not yet been implemented."
+        ;;
+    status|fullstatus)
+        status /usr/bin/java
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart|status|fullstatus}"
+        ERROR=2
+esac
+
+exit $ERROR
+
