@@ -1,5 +1,5 @@
 #!/bin/sh
-# cpanel - ea-tomcat85                           Copyright 2018 cPanel, Inc.
+# cpanel - ea-tomcat85                               Copyright 2018 cPanel, Inc.
 #                                                           All rights Reserved.
 # copyright@cpanel.net                                         http://cpanel.net
 # This code is subject to the cPanel license. Unauthorized copying is prohibited
@@ -14,36 +14,47 @@
 # source function library
 . /etc/rc.d/init.d/functions
 
+export CATALINA_BASE=/opt/cpanel/ea-tomcat85
+
+####### TODO: we should clean this up with reading catalina.pid
+#####  export CATALINA_PID="$CATALINA_BASE/bin/catalina.pid"
+##### in the setenv.sh and use that instead of ps
+
+tomcat_pid() {
+  echo `ps -fe | grep $CATALINA_BASE | grep -v grep | tr -s " "|cut -d" " -f2`
+}
+
+
 case $1 in
     start)
+        pid=$(tomcat_pid)
         file=/opt/cpanel/ea-tomcat85/bin/startup.sh
         # no way to start tomcat
         if [ ! -x $file ]; then
-            echo "Missing $file"
+            echo -e "\e[00m;31mMissing $file\e[00m"
             ERROR=1
         else
             # tomcat disabled by whm
             if [ -e /etc/tomcatdisable ]; then
-                echo "Tomcat is disabled by cPanel/WHM"
+                echo -e "\e[00;31mTomcat is disabled by cPanel/WHM\e[00m"
                 ERROR=0
             else
                 ERROR=0
 
-                status /usr/bin/java &>/dev/null
+                if [ -n "$pid" ]; then
+                    echo -e "\e[00;33mTomcat is already running (pid: $pid)\e[00m"
 
-                # tomcat already running
-                if [ $? -eq 0 ]; then
-                    echo "Tomcat already started"
-                # start tomcat, not running
                 else
+                # start tomcat, not running
                     $file &>/dev/null
+                    echo -e "\e[00;33mGiving Tomcat time to start up ......\e[00m"
                     sleep 1 # just to make sure
-                    status /usr/bin/java &>/dev/null
-
-                    if [ $? -eq 0 ]; then
+                    pid=$(tomcat_pid)
+                    if [ -n "$pid" ]; then
                         ERROR=0
+                    echo -e "\e[00;32mTomcat has started!\e[00m"
                     else
-                        echo "Failed to start Tomcat"
+                        echo -e "\e[00;31mFailed to start Tomcat\e[00m"
                         ERROR=1
                     fi
                 fi
@@ -51,13 +62,20 @@ case $1 in
         fi
         ;;
     stop)
+        pid=$(tomcat_pid)
         file=/opt/cpanel/ea-tomcat85/bin/shutdown.sh
-        if [ ! -x $file ]; then
-            echo "Missing $file"
+        if [ ! -n "$pid" ]; then
+            echo -e "\e[00;31mTomcat is already shutdown\e[00m"
             ERROR=1
         else
+            if [ ! -x $file ]; then
+                echo -e "\e[00;31mMissing $file\e[00m"
+                ERROR=1
+            else
             $file
+            echo -e "\e[00;32mTomcat has shutdown.\e[00m"
             ERROR=0
+            fi
         fi
         ;;
     restart)
@@ -68,10 +86,15 @@ case $1 in
         #else
         #    $file
         #fi
-        echo "restartsrv_tomcat has not yet been implemented."
+        echo -e "\e[00;33mrestartsrv_tomcat has not yet been implemented.\e[00m"
         ;;
     status|fullstatus)
-        status /usr/bin/java
+        pid=$(tomcat_pid)
+        if [ -n "$pid" ]; then
+            echo -e "\e[00;32mTomcat is running!\e[00m"
+        else
+            echo -e "\e[00;31mTomcat is currently not running.\e[00m"
+        fi
         ;;
     *)
         echo $"Usage: $0 {start|stop|restart|status|fullstatus}"
@@ -79,4 +102,3 @@ case $1 in
 esac
 
 exit $ERROR
-

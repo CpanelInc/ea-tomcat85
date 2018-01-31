@@ -32,7 +32,7 @@ URL: http://tomcat.apache.org/
 Source0: http://www-eu.apache.org/dist/tomcat/tomcat-8/v8.5.24/bin/apache-tomcat-8.5.24.tar.gz
 Source1: setenv.sh
 Source2: ea-tomcat85.logrotate
-Source3: tomcat.service
+Source3: ea-tomcat85.service
 Source4: chkconfig
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
@@ -92,7 +92,7 @@ cp %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/ea-tomcat85
 
 %if %{with_systemd}
 mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
-cp %{SOURCE3} $RPM_BUILD_ROOT/usr/lib/systemd/system/tomcat.service
+cp %{SOURCE3} $RPM_BUILD_ROOT/usr/lib/systemd/system/ea-tomcat85.service
 %else
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp %{SOURCE4} $RPM_BUILD_ROOT/etc/init.d/%{name}
@@ -104,33 +104,37 @@ cp %{SOURCE4} $RPM_BUILD_ROOT/etc/init.d/%{name}
 %post
 %if %{with_systemd}
 systemctl daemon-reload
-systemctl enable tomcat
-systemctl start tomcat
+systemctl enable ea-tomcat85
+systemctl start ea-tomcat85
 %else
 /opt/cpanel/ea-tomcat85/bin/startup.sh
 %endif
 
-%postun
+%preun
 %if %{with_systemd}
-systemctl stop tomcat
+systemctl stop ea-tomcat85
+systemctl disable ea-tomcat85
 systemctl daemon-reload
 %else
 /opt/cpanel/ea-tomcat85/bin/shutdown.sh
 %endif
 
+%postun
 /usr/sbin/userdel tomcat
-/usr/sbin/groupdel tomcat
-
+# userdel should remove the group but let us make sure
+/usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
 
 %files
+# We need to add the PID file for better init.d functionality
+# %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/catalina.pid
 %defattr(-,tomcat,nobody,-)
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %dir /var/log/ea-tomcat85
 /etc/logrotate.d/ea-tomcat85
-%config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %if %{with_systemd}
-%config(noreplace) %attr(0644,tomcat,nobody) /usr/lib/systemd/system/tomcat.service
+# Must be root root here for write permissions
+%config(noreplace) %attr(0644,root,root) /usr/lib/systemd/system/ea-tomcat85.service
 %else
 %attr(0755,tomcat,nobody) /etc/init.d/ea-tomcat85
 %endif
