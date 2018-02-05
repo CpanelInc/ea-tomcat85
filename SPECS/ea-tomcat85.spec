@@ -122,7 +122,9 @@ systemctl daemon-reload
 %postun
 /usr/sbin/userdel tomcat
 # userdel should remove the group but let us make sure
-/usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
+# if at some point later it does not we might need something close to the below
+# current this exits with status 2 and causes a warning so taking out
+# /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
 
 %files
 # We need to add the PID file for better init.d functionality
