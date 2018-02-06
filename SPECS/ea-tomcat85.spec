@@ -72,8 +72,11 @@ to be a collaboration of the best-of-breed developers from around the world.
 %setup -n apache-tomcat-%{version}
 
 %pre
-/usr/bin/getent passwd tomcat || /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin tomcat
+if [ `/usr/bin/getent passwd tomcat` ];
+    then usermod -G nobody tomcat;
+else /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -G nobody tomcat
 /usr/bin/getent group tomcat || /usr/sbin/groupadd -r tomcat
+fi
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
