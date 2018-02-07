@@ -16,12 +16,8 @@
 
 export CATALINA_BASE=/opt/cpanel/ea-tomcat85
 
-####### TODO: we should clean this up with reading catalina.pid
-#####  export CATALINA_PID="$CATALINA_BASE/bin/catalina.pid"
-##### in the setenv.sh and use that instead of ps
-
 tomcat_pid() {
-  echo `ps -fe | grep $CATALINA_BASE | grep -v grep | tr -s " "|cut -d" " -f2`
+  cat $CATALINA_PID
 }
 
 

@@ -89,6 +89,10 @@ mkdir -p $RPM_BUILD_ROOT/var/log/ea-tomcat85
 rmdir $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 ln -sf /var/log/ea-tomcat85 $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 
+ln -sf /var/run $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/run
+mkdir -p $RPM_BUILD_ROOT/var/run/
+touch $RPM_BUILD_ROOT/var/run/catalina.pid
+
 # ... and rotate them:
 mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
 cp %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/ea-tomcat85
@@ -137,12 +141,11 @@ fi
 # /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
 
 %files
-# We need to add the PID file for better init.d functionality
-# %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/catalina.pid
 %defattr(-,tomcat,nobody,-)
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %dir /var/log/ea-tomcat85
+%attr(0644,tomcat,nobody) /var/run/catalina.pid
 /etc/logrotate.d/ea-tomcat85
 %if %{with_systemd}
 # Must be root root here for write permissions
