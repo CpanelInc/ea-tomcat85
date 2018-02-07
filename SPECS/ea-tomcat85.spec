@@ -122,8 +122,15 @@ systemctl daemon-reload
 /opt/cpanel/ea-tomcat85/bin/shutdown.sh
 %endif
 
-%postun
-/usr/sbin/userdel tomcat
+# We don't want to remove the user if the customer had the user already
+# Might have data they want including mail spool
+# We DO NOT set up mail for OUR user, so no need for -r in userdel command
+# if it is our user.
+
+if [ `getent passwd tomcat | cut -d: -f6` == "/opt/cpanel/ea-tomcat85" ];
+    then /usr/sbin/userdel tomcat
+fi
+
 # userdel should remove the group but let us make sure
 # if at some point later it does not we might need something close to the below
 # current this exits with status 2 and causes a warning so taking out
