@@ -107,6 +107,18 @@ cp %{SOURCE4} $RPM_BUILD_ROOT/etc/init.d/%{name}
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
 %post
+
+# stop and start, there is no restart
+if [ -e "/var/run/catalina.pid" ]; then
+%if %{with_systemd}
+systemctl stop ea-tomcat85
+systemctl disable ea-tomcat85
+systemctl daemon-reload
+%else
+/opt/cpanel/ea-tomcat85/bin/shutdown.sh
+%endif
+fi
+
 %if %{with_systemd}
 systemctl daemon-reload
 systemctl enable ea-tomcat85
