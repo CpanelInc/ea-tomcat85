@@ -16,9 +16,12 @@
 
 export CATALINA_HOME=/opt/cpanel/ea-tomcat85
 export CATALINA_BASE=/opt/cpanel/ea-tomcat85
+. /opt/cpanel/ea-tomcat85/bin/setenv.sh
 
 tomcat_pid() {
-  cat $CATALINA_PID
+  if [ -n "$CATALINA_PID" ]; then
+      cat $CATALINA_PID
+  fi
 }
 
 
