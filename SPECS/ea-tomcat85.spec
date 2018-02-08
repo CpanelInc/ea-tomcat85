@@ -72,11 +72,20 @@ to be a collaboration of the best-of-breed developers from around the world.
 %setup -n apache-tomcat-%{version}
 
 %pre
+# if the user already exists, just add to nobody group
 if [ `/usr/bin/getent passwd tomcat` ];
     then usermod -G nobody tomcat;
-else /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -G nobody tomcat
-/usr/bin/getent group tomcat || /usr/sbin/groupadd -r tomcat
+# if the user didn't exist lets check the group to give useradd the right flags
+# in case there is a tomcat group leftover from who knows what...
+elif [ `/usr/bin/getent group tomcat` ];
+then /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -g tomcat -G nobody tomcat
+else
+# otherwise lets just create the user like normal
+/usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -G nobody tomcat
 fi
+
+# Just ensuring in some rare case group tomcat wasnt created we check here
+/usr/bin/getent group tomcat || /usr/sbin/groupadd -r tomcat
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
