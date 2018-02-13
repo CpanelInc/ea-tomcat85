@@ -13,6 +13,8 @@ PIDFile=/var/run/catalina.pid
 ExecStart=/opt/cpanel/ea-tomcat85/bin/startup.sh
 ExecStop=/opt/cpanel/ea-tomcat85/bin/shutdown.sh
 
+RestartSec=10
+Restart=always
 TimeoutStartSec=infinity
 
 [Install]
