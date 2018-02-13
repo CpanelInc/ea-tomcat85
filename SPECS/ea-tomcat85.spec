@@ -129,8 +129,8 @@ systemctl daemon-reload
 fi
 
 %if %{with_systemd}
-systemctl daemon-reload
 systemctl enable ea-tomcat85
+systemctl daemon-reload
 systemctl start ea-tomcat85
 %else
 /opt/cpanel/ea-tomcat85/bin/startup.sh
