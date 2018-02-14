@@ -15,7 +15,7 @@ ExecStop=/opt/cpanel/ea-tomcat85/bin/shutdown.sh
 
 RestartSec=10
 Restart=always
-TimeoutStartSec=infinity
+TimeoutStartSec=0 # infinity, does not work as documented ATM
 
 [Install]
 WantedBy=multi-user.target
