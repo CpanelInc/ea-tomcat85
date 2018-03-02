@@ -69,7 +69,7 @@ released under the Apache Software License version 2.0. Tomcat is intended
 to be a collaboration of the best-of-breed developers from around the world.
 
 %prep
-%setup -n apache-tomcat-%{version}
+%setup -nq apache-tomcat-%{version}
 
 %pre
 # if the user already exists, just add to nobody group
@@ -86,6 +86,9 @@ fi
 
 # Just ensuring in some rare case group tomcat wasnt created we check here
 /usr/bin/getent group tomcat || /usr/sbin/groupadd -r tomcat
+
+%build
+# empty build section
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
@@ -105,11 +108,11 @@ cp %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/ea-tomcat85
 ln -sf /var/run $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/run
 
 %if %{with_systemd}
-mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
-cp %{SOURCE3} $RPM_BUILD_ROOT/usr/lib/systemd/system/ea-tomcat85.service
+mkdir -p $RPM_BUILD_ROOT%{_unitdir}
+cp %{SOURCE3} $RPM_BUILD_ROOT%{_unitdir}/ea-tomcat85.service
 %else
-mkdir -p $RPM_BUILD_ROOT/etc/init.d
-cp %{SOURCE4} $RPM_BUILD_ROOT/etc/init.d/%{name}
+mkdir -p $RPM_BUILD_ROOT%{_initddir}
+cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/%{name}
 %endif
 
 %clean
@@ -173,9 +176,9 @@ fi
 /etc/logrotate.d/ea-tomcat85
 %if %{with_systemd}
 # Must be root root here for write permissions
-%config(noreplace) %attr(0644,root,root) /usr/lib/systemd/system/ea-tomcat85.service
+%config(noreplace) %attr(0644,root,root) %{_unitdir}/ea-tomcat85.service
 %else
-%attr(0755,tomcat,nobody) /etc/init.d/ea-tomcat85
+%attr(0755,tomcat,nobody) %{_initddir}/ea-tomcat85
 %endif
 
 %changelog
