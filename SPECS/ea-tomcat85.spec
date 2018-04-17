@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 2
+%define release_prefix 3
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -36,6 +36,8 @@ Source3: ea-tomcat85.service
 Source4: chkconfig
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
+
+Requires: ea-apache24-mod_proxy_ajp
 
 # Create Tomcat user/group as we definitely do not want this running as root.
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
@@ -182,6 +184,9 @@ fi
 %endif
 
 %changelog
+* Tue Apr 17 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-3
+- ZC-3464: Add ea-apache24-mod_proxy_ajp as a requirement so we have a connector available
+
 * Wed Mar 14 2018 Cory McIntire <cory@cpanel.net> - 8.5.24-2
 - EA-7297: Fix rpmlint errors and warnings
 - Credit: https://github.com/dkasyanov
