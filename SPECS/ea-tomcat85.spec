@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 3
+%define release_prefix 4
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -34,6 +34,7 @@ Source1: setenv.sh
 Source2: ea-tomcat85.logrotate
 Source3: ea-tomcat85.service
 Source4: chkconfig
+Source5: cpanel-scripts-ea-tomcat85
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
 
@@ -117,6 +118,9 @@ mkdir -p $RPM_BUILD_ROOT%{_initddir}
 cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/%{name}
 %endif
 
+mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/scripts
+cp %{SOURCE5} $RPM_BUILD_ROOT/usr/local/cpanel/scripts/ea-tomcat85
+
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
@@ -170,9 +174,11 @@ fi
 # /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
 
 %files
+%attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
 %defattr(-,tomcat,nobody,-)
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
+%config(noreplace) %attr(0600,root,root) /opt/cpanel/ea-tomcat85/conf/server.xml
 %dir /var/log/ea-tomcat85
 %ghost %attr(0644,tomcat,nobody) /var/run/catalina.pid
 /etc/logrotate.d/ea-tomcat85
@@ -184,6 +190,9 @@ fi
 %endif
 
 %changelog
+* Fri May 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-4
+- EA-7402: Create initial add/remove tomcat to a domain script
+
 * Tue Apr 17 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-3
 - ZC-3464: Add ea-apache24-mod_proxy_ajp as a requirement so we have a connector available
 
