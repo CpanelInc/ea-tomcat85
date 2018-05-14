@@ -144,7 +144,8 @@ sub _finalize {
     }
     if ($is_systemd) {
         system('systemctl enable ea-tomcat85');
-        system('systemctl daemon-reload') system('systemctl start ea-tomcat85');
+        system('systemctl daemon-reload');
+        system('systemctl start ea-tomcat85');
     }
     else {
         system('/opt/cpanel/ea-tomcat85/bin/startup.sh');
