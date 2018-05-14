@@ -11,6 +11,7 @@ package scripts::ea_tomcat85;
 
 use Cpanel::FileUtils::Write             ();
 use Cpanel::SafeDir::MK                  ();
+use Cpanel::Sys::OS                      ();
 use Cpanel::Config::userdata::Load       ();
 use Cpanel::Config::userdata::Cache      ();
 use Cpanel::AcctUtils::DomainOwner::Tiny ();
@@ -85,6 +86,7 @@ sub add {
 
     die "Failed to add tomcat 8.5 support to $user’s domain $domain\n" if !_domain_has_tomcat85( $user, $domain );
 
+    _finalize();
     print " … done!\n";
 
     return;
@@ -114,6 +116,7 @@ sub rem {
 
     die "Failed to remove tomcat 8.5 support from $user’s domain $domain\n" if _domain_has_tomcat85( $user, $domain, 1 );
 
+    _finalize();
     print " … done!\n";
 
     return;
@@ -122,6 +125,37 @@ sub rem {
 ###############
 #### helpers ##
 ###############
+
+sub _finalize {
+    system('/usr/local/cpanel/scripts/rebuildhttpdconf') && die "Could not rebuild httpd.conf (exit $?)\n";
+
+    # stop and start, there is no restart - EA-7462
+    my $is_systemd = Cpanel::Sys::OS::getreleaseversion() >= 7.0 && -d '/etc/systemd/system/' ? 1 : 0;
+
+    if ( -e "/var/run/catalina.pid" ) {
+        if ($is_systemd) {
+            system('systemctl stop ea-tomcat85');
+            system('systemctl disable ea-tomcat85');
+            system('systemctl daemon-reload');
+        }
+        else {
+            system('/opt/cpanel/ea-tomcat85/bin/shutdown.sh');
+        }
+    }
+    if ($is_systemd) {
+        system('systemctl enable ea-tomcat85');
+        system('systemctl daemon-reload') system('systemctl start ea-tomcat85');
+    }
+    else {
+        system('/opt/cpanel/ea-tomcat85/bin/startup.sh');
+    }
+
+    # /stop and start, there is no restart - EA-7462
+
+    system('/usr/local/cpanel/scripts/restartsrv_httpd') && die "Could not restart httpd (exit $?)\n";
+
+    return;
+}
 
 sub _process_args {
     my ( $app, $domain ) = @_;
@@ -187,7 +221,7 @@ sub _get_new_host_element {
     my ( $user, $domain ) = @_;
 
     my $docroot = Cpanel::Config::userdata::Cache::get_docroot( $user, $domain );
-    my $xml = qq{ 
+    my $xml = qq{
 <Host name="$domain" appBase="$docroot">
     <Alias>www.$domain</Alias>
     <Context path="" reloadable="true" docBase="$docroot" debug="1"/>

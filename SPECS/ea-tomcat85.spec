@@ -126,7 +126,7 @@ cp %{SOURCE5} $RPM_BUILD_ROOT/usr/local/cpanel/scripts/ea-tomcat85
 
 %post
 
-# stop and start, there is no restart
+# stop and start, there is no restart - EA-7462
 if [ -e "/var/run/catalina.pid" ]; then
 %if %{with_systemd}
 systemctl stop ea-tomcat85
