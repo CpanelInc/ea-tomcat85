@@ -10,6 +10,7 @@ use warnings;
 package scripts::ea_tomcat85;
 
 use Cpanel::FileUtils::Write             ();
+use Cpanel::SafeDir::MK                  ();
 use Cpanel::Config::userdata::Load       ();
 use Cpanel::Config::userdata::Cache      ();
 use Cpanel::AcctUtils::DomainOwner::Tiny ();
@@ -223,6 +224,10 @@ sub _write_conf {
    </LocationMatch>
 </IfModule>
 };
+
+    my $dir = $file;
+    $dir =~ s{/[^/]+$}{};
+    Cpanel::SafeDir::MK::safemkdir($dir) if !-d $dir;
 
     return Cpanel::FileUtils::Write::overwrite( $file, $string, 0644 );
 }
