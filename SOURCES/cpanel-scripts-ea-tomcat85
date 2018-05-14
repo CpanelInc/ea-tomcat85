@@ -56,7 +56,12 @@ my $opts       = {
     alias            => { remove => "rem" },
 };
 
-App::CmdDispatch->new( $cmds, $opts )->run(@ARGV) if !caller;
+run(@ARGV) if !caller;
+
+sub run {
+    my (@argv) = @_;
+    App::CmdDispatch->new( $cmds, $opts )->run(@argv);
+}
 
 ################
 #### commands ##
