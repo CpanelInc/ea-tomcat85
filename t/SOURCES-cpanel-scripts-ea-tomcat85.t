@@ -58,23 +58,33 @@ subtest "help/hint [subcmd]" => sub {
     like( $trap->stdout, qr/remove\s+:\s+rem/, "`hint remove` shows remove as an alias of rem" );
 };
 
-subtest "[subcmd] bad.domain" => sub {
-    plan tests => 6;
+subtest "[subcmd] invalid domain" => sub {
+    plan tests => 18;
 
     for my $subcmd (@subcmds) {
+        trap { scripts::ea_tomcat85::run($subcmd) };
+        like( $trap->stderr, qr/Domain argument is missing/, "`$subcmd` w/out domain gives warning" );
+        like( $trap->stdout, qr/given domain/, "`$subcmd` w/out domain does help" );
+
         trap { scripts::ea_tomcat85::run( $subcmd, "i-do-not-exist-$$.com" ) };
         like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <non-existent domain>` gives warning" );
+        like( $trap->stdout, qr/given domain/, "`$subcmd <non-existent domain>` does help" );
+
+        trap { scripts::ea_tomcat85::run( $subcmd, "i’m not even a domain" ) };
+        like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <non-FQDN>` gives warning" );
         like( $trap->stdout, qr/given domain/, "`$subcmd <non-existent domain>` does help" );
     }
 };
 
 __END__
-status actual.domain == disabled
-add actual.domain == adds to domain
-status actual.domain == enabled
-add actual.domain == does help w/ message
-rem actual.domain == removes from domain
-status actual.domain == disabled
-rem actual.domain == does help w/ message
-remove works the same as rem
 
+subtest "[subcmd] valid domain" => sub {
+    status actual.domain == disabled
+    add actual.domain == adds to domain
+    status actual.domain == enabled
+    add actual.domain == does help w/ message
+    rem actual.domain == removes from domain
+    status actual.domain == disabled
+    rem actual.domain == does help w/ message
+    remove works the same as rem
+};

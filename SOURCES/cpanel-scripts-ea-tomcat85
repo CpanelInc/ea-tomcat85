@@ -167,6 +167,12 @@ sub _finalize {
 sub _process_args {
     my ( $app, $domain ) = @_;
 
+    if ( !$domain ) { 
+        warn "Domain argument is missing.\n";
+        $app->help();
+        exit(1);
+    }   
+
     my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
     if ( !$user ) {
         warn "Domain argument is invalid.\n";
