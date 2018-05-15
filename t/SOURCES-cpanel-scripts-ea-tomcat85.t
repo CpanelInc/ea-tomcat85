@@ -6,14 +6,16 @@
 use strict;
 use warnings;
 
-use Test::More tests => 2;
+use Test::More tests => 3;
 use Test::Trap;
 
 use FindBin;
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
+my @subcmds = qw(status add rem);
+
 subtest "help/hint [subcmd]" => sub {
-    plan tests => 34;
+    plan tests => 28;
 
     # Commands
     # exit
@@ -34,7 +36,6 @@ subtest "help/hint [subcmd]" => sub {
     like( $trap->stdout, qr/Unrecognized command 'derp'/, "unknown command gives reason" );
     unlike( $trap->stdout, qr/given domain/, "unknown arg does hint" );
 
-    my @subcmds = qw(status add rem);
     for my $subcmd (@subcmds) {
         my $pipe_delim = join( "|", grep { $_ ne $subcmd } @subcmds );
 
@@ -47,10 +48,6 @@ subtest "help/hint [subcmd]" => sub {
         like( $trap->stdout, qr/$subcmd <domain>/, "`hint $subcmd` does contains $subcmd" );
         unlike( $trap->stdout, qr/given domain/,    "`hint $subcmd` does hint" );
         unlike( $trap->stdout, qr/(?:$pipe_delim)/, "`hint $subcmd` does not contain other commands" );
-
-        trap { scripts::ea_tomcat85::run( $subcmd, "i-do-not-exist-$$.com" ) };
-        like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <no existant domain>` gives warning" );
-        like( $trap->stdout, qr/given domain/, "`$subcmd <no existant domain>` does help" );
     }
 
     # alias
@@ -59,6 +56,16 @@ subtest "help/hint [subcmd]" => sub {
 
     trap { scripts::ea_tomcat85::run( "hint", "remove" ) };
     like( $trap->stdout, qr/remove\s+:\s+rem/, "`hint remove` shows remove as an alias of rem" );
+};
+
+subtest "[subcmd] bad.domain" => sub {
+    plan tests => 6;
+
+    for my $subcmd (@subcmds) {
+        trap { scripts::ea_tomcat85::run( $subcmd, "i-do-not-exist-$$.com" ) };
+        like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <non-existent domain>` gives warning" );
+        like( $trap->stdout, qr/given domain/, "`$subcmd <non-existent domain>` does help" );
+    }
 };
 
 __END__
