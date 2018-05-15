@@ -9,11 +9,12 @@ use warnings;
 
 package scripts::ea_tomcat85;
 
+use Cpanel::WebVhosts                    ();
+use Cpanel::AccessIds                    ();
 use Cpanel::FileUtils::Write             ();
 use Cpanel::SafeDir::MK                  ();
 use Cpanel::Sys::OS                      ();
-use Cpanel::Config::userdata::Load       ();
-use Cpanel::Config::userdata::Cache      ();
+use Cpanel::Config::LoadUserDomains      ();
 use Cpanel::AcctUtils::DomainOwner::Tiny ();
 use Cpanel::ConfigFiles::Apache 'apache_paths_facade';    # see POD for import specifics
 
@@ -161,9 +162,16 @@ sub _finalize {
 sub _process_args {
     my ( $app, $domain ) = @_;
 
-    my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner($domain);
+    my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
+    if ( !$user ) {
+        warn "Domain argument is invalid.\n";
+        $app->help();
+        exit(1);
+    }
 
-    if ( !Cpanel::Config::userdata::Load::user_has_domain( $user, $domain ) ) {
+    my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
+
+    if ( !exists $fqdn{$domain} ) {
         warn "The given domain does not exist.\n";
         $app->help();
         exit(1);
@@ -225,7 +233,8 @@ sub _get_serverxml_dom {
 sub _get_new_host_element {
     my ( $user, $domain ) = @_;
 
-    my $docroot = Cpanel::Config::userdata::Cache::get_docroot( $user, $domain );
+    my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
+
     my $xml = qq{
 <Host name="$domain" appBase="$docroot">
     <Alias>www.$domain</Alias>
