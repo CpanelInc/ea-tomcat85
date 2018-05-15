@@ -8,9 +8,13 @@ use warnings;
 
 use Test::More tests => 3;
 use Test::Trap;
+use File::Temp;
 
 use FindBin;
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
+
+use lib "/usr/local/cpanel", "/usr/local/cpanel/t/lib";
+use Temp::User::Cpanel ();
 
 my @subcmds = qw(status add rem);
 
@@ -91,15 +95,30 @@ subtest "[subcmd] invalid domain" => sub {
     }
 };
 
-__END__
+subtest "[subcmd] valid domain - happy path" => sub {
+    plan tests => 1;
+    ok("WiP");
 
-subtest "[subcmd] valid domain" => sub {
-    status actual.domain == disabled
-    add actual.domain == adds to domain
-    status actual.domain == enabled
-    add actual.domain == does help w/ message
-    rem actual.domain == removes from domain
-    status actual.domain == disabled
-    rem actual.domain == does help w/ message
-    remove works the same as rem
+    my $dir = File::Temp->newdir();
+
+    no warnings 'once';
+    local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";    # TODO: create me
+    use warnings 'once';
+
+    no warnings "redefine";
+    local *scripts::ea_tomcat85::_finalize                = sub { };
+    local *Cpanel::ConfigFiles::Apache::dir_conf_userdata = sub { $dir };
+    use warnings "redefine";
+
+    my $user = Temp::User::Cpanel->new();
+    diag( explain($user) );
+
+    # status actual.domain == disabled
+    # add actual.domain == adds to domain
+    # status actual.domain == enabled
+    # add actual.domain == does help w/ message
+    # rem actual.domain == removes from domain
+    # status actual.domain == disabled
+    # rem actual.domain == does help w/ message
+    # remove works the same as rem
 };
