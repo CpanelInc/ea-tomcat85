@@ -175,15 +175,19 @@ sub _process_args {
 sub _get_ssl_conf_path {
     my ( $user, $domain ) = @_;
 
+    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
     my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
-    return "$dir_conf_userdata/ssl/$user/$domain/$conf_name";
+
+    return "$dir_conf_userdata/ssl/$apv/$user/$domain/$conf_name";
 }
 
 sub _get_nonssl_conf_path {
     my ( $user, $domain ) = @_;
 
+    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
     my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
-    return "$dir_conf_userdata/std/$user/$domain/$conf_name";
+
+    return "$dir_conf_userdata/std/$apv/$user/$domain/$conf_name";
 }
 
 sub _domain_has_tomcat85 {
