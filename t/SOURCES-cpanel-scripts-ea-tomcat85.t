@@ -17,7 +17,11 @@ use Cpanel::FileUtils::Copy ();
 use lib "/usr/local/cpanel/t/lib";
 use Temp::User::Cpanel ();
 
-BEGIN { @INC = grep !/^\Q$FindBin::Bin\E/, @INC };    # undo what Temp::User::Cpanel does to @INC so creating a user doesn’t barf with errors about things it can't access
+BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/t
+    use lib "/usr/local/cpanel/t/lib";
+    use Temp::User::Cpanel ();
+    @INC = grep !/^\Q$FindBin::Bin\E/, @INC;    # undo what Temp::User::Cpanel does to @INC so creating a user doesn’t barf with errors about things it can't access
+}
 
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
@@ -114,8 +118,7 @@ subtest "[subcmd] invalid domain" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 1;
-    ok("WiP");
+    plan tests => 11;
 
     my $dir = File::Temp->newdir();
 
@@ -131,15 +134,53 @@ subtest "[subcmd] valid domain - happy path" => sub {
     local *Cpanel::ConfigFiles::Apache::dir_conf_userdata = sub { $dir };
     use warnings "redefine";
 
-    my $user = Temp::User::Cpanel->new();
-    diag( explain($user) );
+    # some more voo doo necessary since the test isn’t in /usr/local/cpanel/t
+    chdir "/" or die "chdir(/) failed: $!\n";
+    local $FindBin::Bin = "/";
+    my $user   = Temp::User::Cpanel->new();
+    my $domain = $user->domain;
 
-    # status actual.domain == disabled
-    # add actual.domain == adds to domain
-    # status actual.domain == enabled
-    # add actual.domain == does help w/ message
-    # rem actual.domain == removes from domain
-    # status actual.domain == disabled
-    # rem actual.domain == does help w/ message
-    # remove works the same as rem
+    my %dom_tests = ( main => $domain );    # ¿ TODO/YAGNI: expand to parked, sub, addon, addon’s sub ?
+
+    for my $type ( "main", sort grep { $_ ne "main" } keys %dom_tests ) {
+        my $dname = $dom_tests{$type};
+
+        trap { scripts::ea_tomcat85::run( "status", $dname ) };
+        is( $trap->exit, undef, "status <$type domain> exits clean when domain is disabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "status <$type domain> when disabled says its disabled" );
+
+        trap { scripts::ea_tomcat85::run( "add", $dname ) };
+        is( $trap->exit, undef, "add <$type domain> exits clean" );
+
+        # TODO: add actual.domain == adds to domain
+
+        trap { scripts::ea_tomcat85::run( "status", $dname ) };
+        is( $trap->exit, undef, "status <$type domain> exits clean when domain is enabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: enabled/, "status <$type domain> after enabling says its enabled" );
+
+        trap { scripts::ea_tomcat85::run( "add", $dname ) };
+        is( $trap->exit, undef, "add <$type domain> exits clean when domain is already enabled" );
+
+        # TODO: add actual.domain == does help w/ message
+
+        trap { scripts::ea_tomcat85::run( "rem", $dname ) };
+        is( $trap->exit, undef, "rem <$type domain> exits clean" );
+
+        # TODO: rem actual.domain == removes from domain
+
+        trap { scripts::ea_tomcat85::run( "status", $dname ) };
+        is( $trap->exit, undef, "status <$type domain> exits clean when domain is disabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "status <$type domain> after being removed says its disabled" );
+
+        trap { scripts::ea_tomcat85::run( "rem", $dname ) };
+        is( $trap->exit, undef, "add <$type domain> exits clean when domain is already disabled" );
+
+        # TODO: rem actual.domain == does help w/ message
+
+        trap { scripts::ea_tomcat85::run( "add",    $dname ) };
+        trap { scripts::ea_tomcat85::run( "remove", $dname ) };
+        is( $trap->exit, undef, "remove <$type domain> exits clean like rem" );
+
+        # TODO: remove actual.domain == removes from domain like rem
+    }
 };
