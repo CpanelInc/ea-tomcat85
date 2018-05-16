@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 use Test::Trap;
 use File::Temp;
 
@@ -75,7 +75,7 @@ subtest "help/hint [subcmd]" => sub {
 };
 
 subtest "[subcmd] invalid domain" => sub {
-    plan tests => 27;
+    plan tests => 36;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };
@@ -84,14 +84,27 @@ subtest "[subcmd] invalid domain" => sub {
         is( $trap->exit, 1, "`$subcmd` w/out domain exits unclean" );
 
         trap { scripts::ea_tomcat85::run( $subcmd, "i-do-not-exist-$$.com" ) };
-        like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <non-existent domain>` gives warning" );
+        like( $trap->stderr, qr/Domain argument is invalid/, "`$subcmd <non-existent domain>` gives warning" );
         like( $trap->stdout, qr/given domain/, "`$subcmd <non-existent domain>` does help" );
-        is( $trap->exit, 1, "`$subcmd` w/out domain exits unclean" );
+        is( $trap->exit, 1, "`$subcmd <non-existent domain>` exits unclean" );
 
         trap { scripts::ea_tomcat85::run( $subcmd, "i’m not even a domain" ) };
-        like( $trap->stderr, qr/The given domain does not exist/, "`$subcmd <non-FQDN>` gives warning" );
-        like( $trap->stdout, qr/given domain/, "`$subcmd <non-existent domain>` does help" );
-        is( $trap->exit, 1, "`$subcmd` w/out domain exits unclean" );
+        like( $trap->stderr, qr/Domain argument is invalid/, "`$subcmd <non-FQDN>` gives warning" );
+        like( $trap->stdout, qr/given domain/, "`$subcmd <non-FQDN>` does help" );
+        is( $trap->exit, 1, "`$subcmd <non-FQDN>` exits unclean" );
+
+        # this should never happen but juuuust in case
+        {
+            my $user = "derpy";
+            no warnings "redefine";
+            local *Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner = sub { return $user };
+            local *Cpanel::Config::LoadUserDomains::loaduserdomains = sub { return { $user => [] } };
+
+            trap { scripts::ea_tomcat85::run( $subcmd, "i-somehow-belong-to-user-but-am-not-in-its-list-of-domains-$$.com" ) };
+            like( $trap->stderr, qr/The domain does not exist in user’s domain/, "`$subcmd <weird state domain>` gives warning" );
+            like( $trap->stdout, qr/given domain/, "`$subcmd <weird state  domain>` does help" );
+            is( $trap->exit, 1, "`$subcmd <weird state  domain>` exits unclean" );
+        }
     }
 };
 
@@ -110,8 +123,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
     local *Cpanel::ConfigFiles::Apache::dir_conf_userdata = sub { $dir };
     use warnings "redefine";
 
-    my $user = Temp::User::Cpanel->new();
-    diag( explain($user) );
+    # my $user = Temp::User::Cpanel->new();
+    # diag( explain($user) );
 
     # status actual.domain == disabled
     # add actual.domain == adds to domain

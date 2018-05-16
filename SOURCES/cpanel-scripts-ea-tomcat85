@@ -183,7 +183,7 @@ sub _process_args {
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
 
     if ( !exists $fqdn{$domain} ) {
-        warn "The given domain does not exist.\n";
+        warn "The domain does not exist in user’s domain.";
         $app->help();
         exit(1);
     }
