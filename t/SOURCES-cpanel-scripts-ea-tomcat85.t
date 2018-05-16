@@ -11,11 +11,16 @@ use Test::Trap;
 use File::Temp;
 
 use FindBin;
+
+use Cpanel::FileUtils::Copy ();
+
+use lib "/usr/local/cpanel/t/lib";
+use Temp::User::Cpanel ();
+
+BEGIN { @INC = grep !/^\Q$FindBin::Bin\E/, @INC };    # undo what Temp::User::Cpanel does to @INC so creating a user doesn’t barf with errors about things it can't access
+
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
-use lib "/usr/local/cpanel", "/usr/local/cpanel/t/lib";
-use Temp::User::Cpanel      ();
-use Cpanel::FileUtils::Copy ();
 my @subcmds = qw(status add rem);
 
 # FWiW: this test may seem odd:
@@ -126,8 +131,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
     local *Cpanel::ConfigFiles::Apache::dir_conf_userdata = sub { $dir };
     use warnings "redefine";
 
-    # my $user = Temp::User::Cpanel->new();
-    # diag( explain($user) );
+    my $user = Temp::User::Cpanel->new();
+    diag( explain($user) );
 
     # status actual.domain == disabled
     # add actual.domain == adds to domain
