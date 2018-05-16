@@ -118,7 +118,7 @@ subtest "[subcmd] invalid domain" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 11;
+    plan tests => 18;
 
     my $dir = File::Temp->newdir();
 
@@ -139,48 +139,47 @@ subtest "[subcmd] valid domain - happy path" => sub {
     local $FindBin::Bin = "/";
     my $user   = Temp::User::Cpanel->new();
     my $domain = $user->domain;
+    my $uname  = $user->name;
 
-    my %dom_tests = ( main => $domain );    # ¿ TODO/YAGNI: expand to parked, sub, addon, addon’s sub ?
+    my %dom_tests = ( main => $domain );    # ¿ TODO/YAGNI: expand to parked, sub, addon, addon’s sub, cpanel proxy ?
 
     for my $type ( "main", sort grep { $_ ne "main" } keys %dom_tests ) {
         my $dname = $dom_tests{$type};
 
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
-        is( $trap->exit, undef, "status <$type domain> exits clean when domain is disabled" );
-        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "status <$type domain> when disabled says its disabled" );
+        is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is disabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "`status <$type domain>` when disabled says its disabled" );
 
         trap { scripts::ea_tomcat85::run( "add", $dname ) };
-        is( $trap->exit, undef, "add <$type domain> exits clean" );
-
-        # TODO: add actual.domain == adds to domain
+        is( $trap->exit, undef, "`add <$type domain>` exits clean" );
+        ok( scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`add <$type domain>` adds tomcat85 support" );
 
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
-        is( $trap->exit, undef, "status <$type domain> exits clean when domain is enabled" );
-        like( $trap->stdout, qr/^\Q$dname\E: enabled/, "status <$type domain> after enabling says its enabled" );
+        is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is enabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: enabled/, "`status <$type domain>` after enabling says its enabled" );
 
         trap { scripts::ea_tomcat85::run( "add", $dname ) };
-        is( $trap->exit, undef, "add <$type domain> exits clean when domain is already enabled" );
-
-        # TODO: add actual.domain == does help w/ message
+        is( $trap->exit, 1, "`add <$type domain>` exits unclean when domain is already enabled" );
+        like( $trap->stderr, qr/The domain already has tomcat 8\.5 support/, "`add <$type domain>` gives warning when domain is already enabled" );
+        like( $trap->stdout, qr/given domain/, "`add <$type domain>` does help when domain is already enabled" );
 
         trap { scripts::ea_tomcat85::run( "rem", $dname ) };
-        is( $trap->exit, undef, "rem <$type domain> exits clean" );
-
-        # TODO: rem actual.domain == removes from domain
+        is( $trap->exit, undef, "`rem <$type domain>` exits clean" );
+        ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`rem <$type domain>` removes tomcat85 support" );
 
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
-        is( $trap->exit, undef, "status <$type domain> exits clean when domain is disabled" );
-        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "status <$type domain> after being removed says its disabled" );
+        is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is disabled" );
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/, "`status <$type domain>` after being removed says its disabled" );
 
         trap { scripts::ea_tomcat85::run( "rem", $dname ) };
-        is( $trap->exit, undef, "add <$type domain> exits clean when domain is already disabled" );
+        is( $trap->exit, 1, "`rem <$type domain>` exits unclean when domain is already disabled" );
+        like( $trap->stderr, qr/The domain does not have tomcat 8\.5 support/, "`rem <$type domain>` gives warning when domain is already disabled" );
+        like( $trap->stdout, qr/given domain/, "`rem <$type domain>` does help when domain is already disabled" );
 
-        # TODO: rem actual.domain == does help w/ message
-
+        # smaller subset to verify remove aliases rem correctly:
         trap { scripts::ea_tomcat85::run( "add",    $dname ) };
         trap { scripts::ea_tomcat85::run( "remove", $dname ) };
-        is( $trap->exit, undef, "remove <$type domain> exits clean like rem" );
-
-        # TODO: remove actual.domain == removes from domain like rem
+        is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
+        ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
     }
 };

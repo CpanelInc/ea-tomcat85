@@ -71,7 +71,7 @@ sub add {
     my ( $app, $user, $domain ) = _process_args(@_);
 
     if ( _domain_has_tomcat85( $user, $domain ) ) {
-        warn "The given domain already has tomcat 8.5 support.\n";
+        warn "The domain already has tomcat 8.5 support.\n";
         $app->help();
         exit(1);
     }
@@ -102,7 +102,7 @@ sub rem {
     my ( $app, $user, $domain ) = _process_args(@_);
 
     if ( !_domain_has_tomcat85( $user, $domain ) ) {
-        warn "The given domain does not have tomcat 8.5 support.\n";
+        warn "The domain does not have tomcat 8.5 support.\n";
         $app->help();
         exit(1);
     }
