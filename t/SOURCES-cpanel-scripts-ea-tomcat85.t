@@ -183,3 +183,5 @@ subtest "[subcmd] valid domain - happy path" => sub {
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
     }
 };
+
+# TODO: sad path edge case tests (like handling partially enabled domains)
