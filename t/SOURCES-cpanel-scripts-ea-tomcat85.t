@@ -14,8 +14,8 @@ use FindBin;
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
 use lib "/usr/local/cpanel", "/usr/local/cpanel/t/lib";
-use Temp::User::Cpanel ();
-
+use Temp::User::Cpanel      ();
+use Cpanel::FileUtils::Copy ();
 my @subcmds = qw(status add rem);
 
 # FWiW: this test may seem odd:
@@ -114,8 +114,10 @@ subtest "[subcmd] valid domain - happy path" => sub {
 
     my $dir = File::Temp->newdir();
 
+    Cpanel::FileUtils::Copy::safecopy( $scripts::ea_tomcat85::serverxml_path, "$dir/server.xml" )    # since server.xml and this script are installed by the same RPM this should be good
+      or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_path missing?)\n");  # safecopy() already spews warnings and errors
     no warnings 'once';
-    local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";    # TODO: create me
+    local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";
     use warnings 'once';
 
     no warnings "redefine";
