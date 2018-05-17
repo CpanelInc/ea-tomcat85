@@ -46,6 +46,18 @@ my $cmds = {
         abstract => 'Check for tomcat 8.5 support',
         help     => 'Check for tomcat 8.5 support for the given domain.',
     },
+    list => {
+        code => sub {
+            _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
+            my $dom = _get_serverxml_dom();
+            for my $hostnode ( $dom->findnodes("//Server/Service/Engine/Host") ) {
+                print $hostnode->getAttribute("name") . "\n";
+            }
+        },
+        clue     => 'list',
+        abstract => 'List domains tomcat 8.5 support',
+        help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
+    },
 };
 
 my $hint_blurb = "This tool supports the following commands (i.e. $0 {command} …):";
@@ -56,7 +68,12 @@ my $opts       = {
     alias            => { remove => "rem" },
 };
 
-App::CmdDispatch->new( $cmds, $opts )->run(@ARGV) if !caller;
+run(@ARGV) if !caller;
+
+sub run {
+    my (@argv) = @_;
+    App::CmdDispatch->new( $cmds, $opts )->run(@argv);
+}
 
 ################
 #### commands ##
@@ -65,11 +82,7 @@ App::CmdDispatch->new( $cmds, $opts )->run(@ARGV) if !caller;
 sub add {
     my ( $app, $user, $domain ) = _process_args(@_);
 
-    if ( _domain_has_tomcat85( $user, $domain ) ) {
-        warn "The given domain already has tomcat 8.5 support.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The domain already has tomcat 8.5 support." ) if _domain_has_tomcat85( $user, $domain );
 
     print "Adding tomcat 8.5 support to $user’s domain $domain …\n";
 
@@ -96,11 +109,7 @@ sub add {
 sub rem {
     my ( $app, $user, $domain ) = _process_args(@_);
 
-    if ( !_domain_has_tomcat85( $user, $domain ) ) {
-        warn "The given domain does not have tomcat 8.5 support.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
 
     print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
 
@@ -126,6 +135,15 @@ sub rem {
 ###############
 #### helpers ##
 ###############
+
+sub _bail {
+    my ( $app, $msg ) = @_;
+
+    chomp($msg);
+    warn "$msg\n";
+    $app->help();
+    exit(1); # there is no return()ing from this lol
+}
 
 sub _finalize {
     system('/usr/local/cpanel/scripts/rebuildhttpdconf') && die "Could not rebuild httpd.conf (exit $?)\n";
@@ -162,20 +180,13 @@ sub _finalize {
 sub _process_args {
     my ( $app, $domain ) = @_;
 
+    _bail( $app, "Domain argument is missing." ) if !$domain;
+
     my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
-    if ( !$user ) {
-        warn "Domain argument is invalid.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "Domain argument is invalid." ) if !$user;
 
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
-
-    if ( !exists $fqdn{$domain} ) {
-        warn "The given domain does not exist.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
 
     return ( $app, $user, $domain );
 }
