@@ -83,8 +83,8 @@ subtest "help/hint [subcmd]" => sub {
     is( $trap->exit, undef, "`hint remove` alias exits clean" );
 };
 
-subtest "[subcmd] invalid domain" => sub {
-    plan tests => 39;
+subtest "[subcmd] invalid-arg" => sub {
+    plan tests => 42;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };
@@ -120,6 +120,11 @@ subtest "[subcmd] invalid domain" => sub {
     like( $trap->stderr, qr/Domain argument is invalid/, "trying to remove localhost gives warning" );
     like( $trap->stdout, qr/given domain/, "trying to remove localhost does help" );
     is( $trap->exit, 1, "trying to remove localhost exits unclean" );
+
+    trap { scripts::ea_tomcat85::run( "list", "derp" ) };
+    like( $trap->stderr, qr/“list” does not take any arguments/, "`list <ARG>` gives warning" );
+    like( $trap->stdout, qr/given domain/, "`list <ARG>` does help" );
+    is( $trap->exit, 1, "`list <ARG>` exits unclean" );
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
@@ -151,6 +156,9 @@ subtest "[subcmd] valid domain - happy path" => sub {
     for my $type ( "main", sort grep { $_ ne "main" } keys %dom_tests ) {
         my $dname = $dom_tests{$type};
 
+        my @tc_doms = _get_list();
+        cmp_deeply( \@tc_doms, superbagof("localhost"), "pre $type sanity check: localhost is configured (list)" );
+
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
         is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is disabled" );
         like( $trap->stdout, qr/^\Q$dname\E: disabled/, "`status <$type domain>` when disabled says its disabled" );
@@ -158,6 +166,9 @@ subtest "[subcmd] valid domain - happy path" => sub {
         trap { scripts::ea_tomcat85::run( "add", $dname ) };
         is( $trap->exit, undef, "`add <$type domain>` exits clean" );
         ok( scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`add <$type domain>` adds tomcat85 support" );
+
+        @tc_doms = _get_list();
+        cmp_deeply( \@tc_doms, superbagof( "localhost", $dname ), "`add <$type domain>` domain and localhost are listed (list)" );
 
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
         is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is enabled" );
@@ -171,6 +182,9 @@ subtest "[subcmd] valid domain - happy path" => sub {
         trap { scripts::ea_tomcat85::run( "rem", $dname ) };
         is( $trap->exit, undef, "`rem <$type domain>` exits clean" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`rem <$type domain>` removes tomcat85 support" );
+
+        @tc_doms = _get_list();
+        cmp_deeply( \@tc_doms, superbagof("localhost"), "`rem <$type domain>` does not list domain, localhost is listed (list)" );
 
         trap { scripts::ea_tomcat85::run( "status", $dname ) };
         is( $trap->exit, undef, "`status <$type domain>` exits clean when domain is disabled" );
@@ -190,3 +204,12 @@ subtest "[subcmd] valid domain - happy path" => sub {
 };
 
 # TODO: sad path edge case tests (like handling partially enabled domains)
+
+###############
+#### helpers ##
+###############
+
+sub _get_list {
+    trap { scripts::ea_tomcat85::run("list") };
+    return split( "\n", $trap->stdout );
+}

@@ -46,6 +46,18 @@ my $cmds = {
         abstract => 'Check for tomcat 8.5 support',
         help     => 'Check for tomcat 8.5 support for the given domain.',
     },
+    list => {
+        code => sub {
+            _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
+            my $dom = _get_serverxml_dom();
+            for my $hostnode ( $dom->findnodes("//Server/Service/Engine/Host") ) {
+                print $hostnode->getAttribute("name") . "\n";
+            }
+        },
+        clue     => 'list',
+        abstract => 'List domains tomcat 8.5 support',
+        help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
+    },
 };
 
 my $hint_blurb = "This tool supports the following commands (i.e. $0 {command} …):";
