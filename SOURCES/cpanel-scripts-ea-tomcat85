@@ -70,11 +70,7 @@ sub run {
 sub add {
     my ( $app, $user, $domain ) = _process_args(@_);
 
-    if ( _domain_has_tomcat85( $user, $domain ) ) {
-        warn "The domain already has tomcat 8.5 support.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The domain already has tomcat 8.5 support." ) if _domain_has_tomcat85( $user, $domain );
 
     print "Adding tomcat 8.5 support to $user’s domain $domain …\n";
 
@@ -101,11 +97,7 @@ sub add {
 sub rem {
     my ( $app, $user, $domain ) = _process_args(@_);
 
-    if ( !_domain_has_tomcat85( $user, $domain ) ) {
-        warn "The domain does not have tomcat 8.5 support.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
 
     print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
 
@@ -131,6 +123,17 @@ sub rem {
 ###############
 #### helpers ##
 ###############
+
+sub _bail {
+    my ( $app, $msg ) = @_;
+
+    chomp($msg);
+    warn "$msg\n";
+    $app->help();
+    exit(1);
+
+    return;    # for cplint, but what about unreachable code checks?
+}
 
 sub _finalize {
     system('/usr/local/cpanel/scripts/rebuildhttpdconf') && die "Could not rebuild httpd.conf (exit $?)\n";
@@ -167,26 +170,13 @@ sub _finalize {
 sub _process_args {
     my ( $app, $domain ) = @_;
 
-    if ( !$domain ) {
-        warn "Domain argument is missing.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "Domain argument is missing." ) if !$domain;
 
     my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
-    if ( !$user ) {
-        warn "Domain argument is invalid.\n";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "Domain argument is invalid." ) if !$user;
 
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
-
-    if ( !exists $fqdn{$domain} ) {
-        warn "The domain does not exist in user’s domain.";
-        $app->help();
-        exit(1);
-    }
+    _bail( $app, "The domain does not exist in user’s domain." ) if !exists $fqdn{$domain};
 
     return ( $app, $user, $domain );
 }

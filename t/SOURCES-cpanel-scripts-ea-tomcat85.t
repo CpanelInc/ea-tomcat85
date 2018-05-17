@@ -84,7 +84,7 @@ subtest "help/hint [subcmd]" => sub {
 };
 
 subtest "[subcmd] invalid domain" => sub {
-    plan tests => 36;
+    plan tests => 39;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };
@@ -115,6 +115,11 @@ subtest "[subcmd] invalid domain" => sub {
             is( $trap->exit, 1, "`$subcmd <weird state  domain>` exits unclean" );
         }
     }
+
+    trap { scripts::ea_tomcat85::run( "rem", "localhost" ) };
+    like( $trap->stderr, qr/Domain argument is invalid/, "trying to remove localhost gives warning" );
+    like( $trap->stdout, qr/given domain/, "trying to remove localhost does help" );
+    is( $trap->exit, 1, "trying to remove localhost exits unclean" );
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
