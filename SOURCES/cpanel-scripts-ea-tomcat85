@@ -274,13 +274,7 @@ sub _write_conf {
     my ($file) = @_;
 
     my $string = q{<IfModule proxy_ajp_module>
-   # easy to proxy App dirs w/ ajp: ProxyPass "/docs" "ajp://127.0.0.1:8009/docs"
-   # but .jsp-only … close but not so much:
-   #### BOTH OF THESE PROXY ALL REQUESTS REGARDLES OF MATCH; SO NON-.jsp ONES ARE ALSO PASSED TO TOMCAT
-   # ProxyPassMatch "^/(.*\.jsp|.*\.do|servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
-   <LocationMatch "^/(.*\.jsp|.*\.do|servlets?/.*)$">
-      ProxyPassMatch "ajp://127.0.0.1:8009/$1"
-   </LocationMatch>
+    ProxyPassMatch "^/(.*\.jsp|.*\.do|servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
 </IfModule>
 };
 
