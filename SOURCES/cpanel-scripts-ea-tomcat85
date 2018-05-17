@@ -142,9 +142,7 @@ sub _bail {
     chomp($msg);
     warn "$msg\n";
     $app->help();
-    exit(1);
-
-    return;    # for cplint, but what about unreachable code checks?
+    exit(1); # there is no return()ing from this lol
 }
 
 sub _finalize {
@@ -188,7 +186,7 @@ sub _process_args {
     _bail( $app, "Domain argument is invalid." ) if !$user;
 
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
-    _bail( $app, "The domain does not exist in user’s domain." ) if !exists $fqdn{$domain};
+    _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
 
     return ( $app, $user, $domain );
 }

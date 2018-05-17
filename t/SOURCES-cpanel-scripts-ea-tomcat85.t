@@ -8,14 +8,12 @@ use warnings;
 
 use Test::More tests => 4;
 use Test::Trap;
+use Test::Deep;
 use File::Temp;
 
 use FindBin;
 
 use Cpanel::FileUtils::Copy ();
-
-use lib "/usr/local/cpanel/t/lib";
-use Temp::User::Cpanel ();
 
 BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/t
     use lib "/usr/local/cpanel/t/lib";
@@ -110,7 +108,7 @@ subtest "[subcmd] invalid-arg" => sub {
             local *Cpanel::Config::LoadUserDomains::loaduserdomains = sub { return { $user => [] } };
 
             trap { scripts::ea_tomcat85::run( $subcmd, "i-somehow-belong-to-user-but-am-not-in-its-list-of-domains-$$.com" ) };
-            like( $trap->stderr, qr/The domain does not exist in user’s domain/, "`$subcmd <weird state domain>` gives warning" );
+            like( $trap->stderr, qr/The account “$user” does not own the domain “i-some\S+com”/, "`$subcmd <weird state domain>` gives warning" );
             like( $trap->stdout, qr/given domain/, "`$subcmd <weird state  domain>` does help" );
             is( $trap->exit, 1, "`$subcmd <weird state  domain>` exits unclean" );
         }
@@ -128,7 +126,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 18;
+    plan tests => 21;
 
     my $dir = File::Temp->newdir();
 
