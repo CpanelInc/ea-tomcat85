@@ -1,0 +1,288 @@
+#!/usr/local/cpanel/3rdparty/bin/perl
+# cpanel - scripts/ea-tomcat85                       Copyright 2018 cPanel, Inc.
+#                                                           All rights Reserved.
+# copyright@cpanel.net                                         http://cpanel.net
+# This code is subject to the cPanel license. Unauthorized copying is prohibited
+
+use strict;
+use warnings;
+
+package scripts::ea_tomcat85;
+
+use Cpanel::WebVhosts                    ();
+use Cpanel::AccessIds                    ();
+use Cpanel::FileUtils::Write             ();
+use Cpanel::SafeDir::MK                  ();
+use Cpanel::Sys::OS                      ();
+use Cpanel::Config::LoadUserDomains      ();
+use Cpanel::AcctUtils::DomainOwner::Tiny ();
+use Cpanel::ConfigFiles::Apache 'apache_paths_facade';    # see POD for import specifics
+
+use XML::LibXML ();
+use App::CmdDispatch;
+
+our $conf_name      = "ea-tomcat85-via-ajp.conf";
+our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
+
+my $cmds = {
+    add => {
+        code     => \&add,
+        clue     => 'add <domain>',
+        abstract => 'Add tomcat 8.5 support',
+        help     => 'Add tomcat 8.5 support to the given domain.',
+    },
+    rem => {
+        code     => \&rem,
+        clue     => 'rem <domain>',
+        abstract => 'Remove tomcat 8.5 support',
+        help     => 'Remove tomcat 8.5 support to the given domain.',
+    },
+    status => {
+        code => sub {
+            my ( $app, $user, $domain ) = _process_args(@_);
+            print "$domain: " . ( _domain_has_tomcat85( $user, $domain ) ? "enabled" : "disabled" ) . "\n";
+        },
+        clue     => 'status <domain>',
+        abstract => 'Check for tomcat 8.5 support',
+        help     => 'Check for tomcat 8.5 support for the given domain.',
+    },
+    list => {
+        code => sub {
+            _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
+            my $dom = _get_serverxml_dom();
+            for my $hostnode ( $dom->findnodes("//Server/Service/Engine/Host") ) {
+                print $hostnode->getAttribute("name") . "\n";
+            }
+        },
+        clue     => 'list',
+        abstract => 'List domains tomcat 8.5 support',
+        help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
+    },
+};
+
+my $hint_blurb = "This tool supports the following commands (i.e. $0 {command} …):";
+my $opts       = {
+    'help:pre_hint'  => $hint_blurb,
+    'help:pre_help'  => "Various tomcat 8.5 related admin utilities\n\n$hint_blurb",
+    default_commands => "help",
+    alias            => { remove => "rem" },
+};
+
+run(@ARGV) if !caller;
+
+sub run {
+    my (@argv) = @_;
+    App::CmdDispatch->new( $cmds, $opts )->run(@argv);
+}
+
+################
+#### commands ##
+################
+
+sub add {
+    my ( $app, $user, $domain ) = _process_args(@_);
+
+    _bail( $app, "The domain already has tomcat 8.5 support." ) if _domain_has_tomcat85( $user, $domain );
+
+    print "Adding tomcat 8.5 support to $user’s domain $domain …\n";
+
+    # Add to server.xml
+    my $dom              = _get_serverxml_dom();
+    my $new_host_element = _get_new_host_element( $user, $domain );
+    my ($engine)         = $dom->findnodes(qq{//Server/Service/Engine[\@name="Catalina"]});    # ¿ and defaultHost="localhost" ?
+
+    $engine->appendChild($new_host_element);
+    _write_serverxml($dom);
+
+    # create Apache includes
+    _write_conf( _get_ssl_conf_path( $user, $domain ) );
+    _write_conf( _get_nonssl_conf_path( $user, $domain ) );
+
+    die "Failed to add tomcat 8.5 support to $user’s domain $domain\n" if !_domain_has_tomcat85( $user, $domain );
+
+    _finalize();
+    print " … done!\n";
+
+    return;
+}
+
+sub rem {
+    my ( $app, $user, $domain ) = _process_args(@_);
+
+    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
+
+    print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
+
+    # Remove from server.xml
+    my $dom = _get_serverxml_dom();
+    for my $host_node ( _get_host_nodes_for( $user, $domain ) ) {
+        $host_node->parentNode->removeChild($host_node);
+    }
+    _write_serverxml($dom);
+
+    # remove Apache includes
+    unlink _get_ssl_conf_path( $user, $domain );
+    unlink _get_nonssl_conf_path( $user, $domain );
+
+    die "Failed to remove tomcat 8.5 support from $user’s domain $domain\n" if _domain_has_tomcat85( $user, $domain, 1 );
+
+    _finalize();
+    print " … done!\n";
+
+    return;
+}
+
+###############
+#### helpers ##
+###############
+
+sub _bail {
+    my ( $app, $msg ) = @_;
+
+    chomp($msg);
+    warn "$msg\n";
+    $app->help();
+    exit(1); # there is no return()ing from this lol
+}
+
+sub _finalize {
+    system('/usr/local/cpanel/scripts/rebuildhttpdconf') && die "Could not rebuild httpd.conf (exit $?)\n";
+
+    # stop and start, there is no restart - EA-7462
+    my $is_systemd = Cpanel::Sys::OS::getreleaseversion() >= 7.0 && -d '/etc/systemd/system/' ? 1 : 0;
+
+    if ( -e "/var/run/catalina.pid" ) {
+        if ($is_systemd) {
+            system('systemctl stop ea-tomcat85');
+            system('systemctl disable ea-tomcat85');
+            system('systemctl daemon-reload');
+        }
+        else {
+            system('/opt/cpanel/ea-tomcat85/bin/shutdown.sh');
+        }
+    }
+    if ($is_systemd) {
+        system('systemctl enable ea-tomcat85');
+        system('systemctl daemon-reload');
+        system('systemctl start ea-tomcat85');
+    }
+    else {
+        system('/opt/cpanel/ea-tomcat85/bin/startup.sh');
+    }
+
+    # /stop and start, there is no restart - EA-7462
+
+    system('/usr/local/cpanel/scripts/restartsrv_httpd') && die "Could not restart httpd (exit $?)\n";
+
+    return;
+}
+
+sub _process_args {
+    my ( $app, $domain ) = @_;
+
+    _bail( $app, "Domain argument is missing." ) if !$domain;
+
+    my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
+    _bail( $app, "Domain argument is invalid." ) if !$user;
+
+    my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
+    _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
+
+    return ( $app, $user, $domain );
+}
+
+sub _get_ssl_conf_path {
+    my ( $user, $domain ) = @_;
+
+    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
+    my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
+
+    return "$dir_conf_userdata/ssl/$apv/$user/$domain/$conf_name";
+}
+
+sub _get_nonssl_conf_path {
+    my ( $user, $domain ) = @_;
+
+    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
+    my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
+
+    return "$dir_conf_userdata/std/$apv/$user/$domain/$conf_name";
+}
+
+sub _domain_has_tomcat85 {
+    my ( $user, $domain, $any ) = @_;
+
+    if ($any) {
+        return 1 if -f _get_ssl_conf_path( $user, $domain ) || -f _get_nonssl_conf_path( $user, $domain ) || _get_host_nodes_for( $user, $domain );
+    }
+    else {
+        return 1 if -f _get_ssl_conf_path( $user, $domain ) && -f _get_nonssl_conf_path( $user, $domain ) && _get_host_nodes_for( $user, $domain );
+    }
+
+    return;
+}
+
+sub _get_host_nodes_for {
+    my ( $user, $domain ) = @_;
+    my $dom = _get_serverxml_dom();
+
+    my @hosts_for_domain = $dom->findnodes(qq{//Server/Service/Engine/Host[\@name="$domain"]});
+
+    warn "More than one <Host> found for $domain\n" if @hosts_for_domain > 1;
+
+    return @hosts_for_domain;
+    return;
+}
+
+my $_dom;
+
+sub _get_serverxml_dom {
+    $_dom ||= XML::LibXML->load_xml( location => $serverxml_path );
+    return $_dom;
+}
+
+sub _get_new_host_element {
+    my ( $user, $domain ) = @_;
+
+    my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
+
+    my $xml = qq{
+<Host name="$domain" appBase="$docroot">
+    <Alias>www.$domain</Alias>
+    <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
+</Host>
+};
+    return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
+}
+
+sub _write_serverxml {
+    my ($dom) = @_;
+
+    # get nicely indented XML (from http://grantm.github.io/perl-libxml-by-example/dom.html#modifying-the-dom)
+    for my $node ( $dom->findnodes('//text()') ) {
+        $node->parentNode->removeChild($node) unless $node =~ /\S/;
+    }
+    my $xml = $dom->toString(1);
+
+    # reset internal DOM singleton
+    $_dom = undef;
+
+    return Cpanel::FileUtils::Write::overwrite( $serverxml_path, $xml );
+}
+
+sub _write_conf {
+    my ($file) = @_;
+
+    my $string = q{<IfModule proxy_ajp_module>
+    ProxyPassMatch "^/(.*\.jsp|.*\.do|servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
+</IfModule>
+};
+
+    my $dir = $file;
+    $dir =~ s{/[^/]+$}{};
+    Cpanel::SafeDir::MK::safemkdir($dir) if !-d $dir;
+
+    return Cpanel::FileUtils::Write::overwrite( $file, $string, 0644 );
+}
+
+1;
