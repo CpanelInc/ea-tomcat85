@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 use Test::Trap;
 use Test::Deep;
 use File::Temp;
@@ -126,7 +126,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 21;
+    plan tests => 25;
 
     my $dir = File::Temp->newdir();
 
@@ -137,8 +137,9 @@ subtest "[subcmd] valid domain - happy path" => sub {
     local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";
     use warnings 'once';
 
+    my $finalized = 0;
     no warnings "redefine";
-    local *scripts::ea_tomcat85::_finalize                = sub { };
+    local *scripts::ea_tomcat85::_finalize                = sub { $finalized++ };
     local *Cpanel::ConfigFiles::Apache::dir_conf_userdata = sub { $dir };
     use warnings "redefine";
 
@@ -193,12 +194,31 @@ subtest "[subcmd] valid domain - happy path" => sub {
         like( $trap->stderr, qr/The domain does not have tomcat 8\.5 support/, "`rem <$type domain>` gives warning when domain is already disabled" );
         like( $trap->stdout, qr/given domain/, "`rem <$type domain>` does help when domain is already disabled" );
 
-        # smaller subset to verify remove aliases rem correctly:
-        trap { scripts::ea_tomcat85::run( "add",    $dname ) };
-        trap { scripts::ea_tomcat85::run( "remove", $dname ) };
+        # smaller subset to verify remove aliases rem correctly (and --no-flush):
+        my $cur_finalized = $finalized;
+        trap { scripts::ea_tomcat85::run( "add", $dname, "--no-flush" ) };
+        like( $trap->stdout, qr/Not rebuilding conf and restarting per --no-flush/, "add <$type domain> --no-flush results in output" );
+        is( $finalized, $cur_finalized, "add <$type domain> --no-flush does not call _finalize()" );
+
+        trap { scripts::ea_tomcat85::run( "remove", $dname, "--no-flush" ) };
+        like( $trap->stdout, qr/Not rebuilding conf and restarting per --no-flush/, "rem[ove] <$type domain> --no-flush results in output" );
+        is( $finalized, $cur_finalized, "rem[ove] <$type domain> --no-flush does not call _finalize()" );
+
         is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
     }
+};
+
+subtest "flush" => sub {
+    plan tests => 1;
+
+    my $finalized = 0;
+    no warnings "redefine";
+    local *scripts::ea_tomcat85::_finalize = sub { $finalized++; };
+    trap {
+        scripts::ea_tomcat85::run("flush")
+    };
+    is( $finalized, 1, "flush sub command calls _finalize()" );
 };
 
 # TODO: sad path edge case tests (like handling partially enabled domains)

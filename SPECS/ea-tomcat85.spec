@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 4
+%define release_prefix 5
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -190,6 +190,9 @@ fi
 %endif
 
 %changelog
+* Thu May 24 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-5
+- EA-7514: Add support for skipping reconf/recbuild to cpanel script
+
 * Fri May 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-4
 - EA-7402: Create initial add/remove tomcat to a domain script
 
