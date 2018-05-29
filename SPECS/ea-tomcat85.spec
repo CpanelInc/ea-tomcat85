@@ -136,38 +136,11 @@ cp %{SOURCE6} $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea
 
 %post
 
-# stop and start, there is no restart - EA-7462
-if [ -e "/var/run/catalina.pid" ]; then
-%if %{with_systemd}
-systemctl stop ea-tomcat85
-systemctl disable ea-tomcat85
-systemctl daemon-reload
-%else
-/opt/cpanel/ea-tomcat85/bin/shutdown.sh
-%endif
-fi
-
-%if %{with_systemd}
-systemctl enable ea-tomcat85
-systemctl daemon-reload
-systemctl start ea-tomcat85
-%else
-/opt/cpanel/ea-tomcat85/bin/startup.sh
-%endif
+/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
 
 %preun
 
-# checking the pid file helps avoid scary sounding warnings like:
-#   $CATALINA_PID was set but the specified file does not exist. Is Tomcat running? Stop aborted.
-if [ -e "/var/run/catalina.pid" ]; then
-%if %{with_systemd}
-systemctl stop ea-tomcat85
-systemctl disable ea-tomcat85
-systemctl daemon-reload
-%else
-/opt/cpanel/ea-tomcat85/bin/shutdown.sh
-%endif
-fi
+/usr/local/cpanel/scripts/restartsrv_ea_tomcat85 stop
 
 # We don't want to remove the user if the customer had the user already
 # Might have data they want including mail spool
