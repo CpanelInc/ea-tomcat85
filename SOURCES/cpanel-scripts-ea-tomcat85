@@ -27,13 +27,13 @@ our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
 my $cmds = {
     add => {
         code     => \&add,
-        clue     => 'add <domain>',
+        clue     => 'add <domain> [--no-flush]',
         abstract => 'Add tomcat 8.5 support',
         help     => 'Add tomcat 8.5 support to the given domain.',
     },
     rem => {
         code     => \&rem,
-        clue     => 'rem <domain>',
+        clue     => 'rem <domain> [--no-flush]',
         abstract => 'Remove tomcat 8.5 support',
         help     => 'Remove tomcat 8.5 support to the given domain.',
     },
@@ -58,6 +58,12 @@ my $cmds = {
         abstract => 'List domains tomcat 8.5 support',
         help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
     },
+    flush => {
+        code     => sub { _finalize() },
+        clue     => 'flush',
+        abstract => 'Rebuild conf and restart tomcat 8.5 and apache',
+        help     => 'Rebuild apache config file to get correct includes, then restart tomcat 8.5 and apache',
+    },
 };
 
 my $hint_blurb = "This tool supports the following commands (i.e. $0 {command} …):";
@@ -80,7 +86,7 @@ sub run {
 ################
 
 sub add {
-    my ( $app, $user, $domain ) = _process_args(@_);
+    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
 
     _bail( $app, "The domain already has tomcat 8.5 support." ) if _domain_has_tomcat85( $user, $domain );
 
@@ -100,14 +106,14 @@ sub add {
 
     die "Failed to add tomcat 8.5 support to $user’s domain $domain\n" if !_domain_has_tomcat85( $user, $domain );
 
-    _finalize();
+    _flush( $opts_hr->{no_flush} );
     print " … done!\n";
 
     return;
 }
 
 sub rem {
-    my ( $app, $user, $domain ) = _process_args(@_);
+    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
 
     _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
 
@@ -126,7 +132,7 @@ sub rem {
 
     die "Failed to remove tomcat 8.5 support from $user’s domain $domain\n" if _domain_has_tomcat85( $user, $domain, 1 );
 
-    _finalize();
+    _flush( $opts_hr->{no_flush} );
     print " … done!\n";
 
     return;
@@ -142,7 +148,20 @@ sub _bail {
     chomp($msg);
     warn "$msg\n";
     $app->help();
-    exit(1); # there is no return()ing from this lol
+    exit(1);    # there is no return()ing from this lol
+}
+
+sub _flush {
+    my ($no_flush) = @_;
+
+    if ($no_flush) {
+        print "Not rebuilding conf and restarting per --no-flush\n";
+    }
+    else {
+        _finalize();
+    }
+
+    return;
 }
 
 sub _finalize {
@@ -178,7 +197,7 @@ sub _finalize {
 }
 
 sub _process_args {
-    my ( $app, $domain ) = @_;
+    my ( $app, $domain, @args ) = @_;
 
     _bail( $app, "Domain argument is missing." ) if !$domain;
 
@@ -188,7 +207,10 @@ sub _process_args {
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
     _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
 
-    return ( $app, $user, $domain );
+    my $opts = { no_flush => 0 };
+    $opts->{no_flush} = 1 if grep { $_ eq "--no-flush" } @args;
+
+    return ( $app, $user, $domain, $opts );
 }
 
 sub _get_ssl_conf_path {
