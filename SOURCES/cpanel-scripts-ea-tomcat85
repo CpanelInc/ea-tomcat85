@@ -248,6 +248,7 @@ sub _get_new_host_element {
     my $xml = qq{
 <Host name="$domain" appBase="$docroot">
     <Alias>www.$domain</Alias>
+    <Alias>mail.$domain</Alias>
     <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
 </Host>
 };
