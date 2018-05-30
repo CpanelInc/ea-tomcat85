@@ -24,18 +24,19 @@ use App::CmdDispatch;
 our $conf_name      = "ea-tomcat85-via-ajp.conf";
 our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
 
-my $cmds = {
+my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
+my $cmds     = {
     add => {
         code     => \&add,
         clue     => 'add <domain> [--no-flush]',
         abstract => 'Add tomcat 8.5 support',
-        help     => 'Add tomcat 8.5 support to the given domain.',
+        help     => "Add tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     rem => {
         code     => \&rem,
         clue     => 'rem <domain> [--no-flush]',
         abstract => 'Remove tomcat 8.5 support',
-        help     => 'Remove tomcat 8.5 support to the given domain.',
+        help     => "Remove tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     status => {
         code => sub {
