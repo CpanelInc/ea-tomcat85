@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 5
+%define release_prefix 6
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -35,6 +35,12 @@ Source2: ea-tomcat85.logrotate
 Source3: ea-tomcat85.service
 Source4: chkconfig
 Source5: cpanel-scripts-ea-tomcat85
+Source6: Ea_tomcat85.pm
+
+# if I do not have autoreq=0, rpm build will recognize that the ea_
+# scripts need perl and some Cpanel pm's to be on the disk.
+# unfortunately they cannot be satisfied via the requires: tags.
+Autoreq: 0
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
 
@@ -112,52 +118,29 @@ ln -sf /var/run $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/run
 
 %if %{with_systemd}
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
-cp %{SOURCE3} $RPM_BUILD_ROOT%{_unitdir}/ea-tomcat85.service
+cp %{SOURCE3} $RPM_BUILD_ROOT%{_unitdir}/ea_tomcat85.service
 %else
 mkdir -p $RPM_BUILD_ROOT%{_initddir}
-cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/%{name}
+cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/ea_tomcat85
 %endif
 
 mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/scripts
 cp %{SOURCE5} $RPM_BUILD_ROOT/usr/local/cpanel/scripts/ea-tomcat85
+ln -s restartsrv_base $RPM_BUILD_ROOT/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
+
+mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services
+cp %{SOURCE6} $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea_tomcat85.pm
 
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
 %post
 
-# stop and start, there is no restart - EA-7462
-if [ -e "/var/run/catalina.pid" ]; then
-%if %{with_systemd}
-systemctl stop ea-tomcat85
-systemctl disable ea-tomcat85
-systemctl daemon-reload
-%else
-/opt/cpanel/ea-tomcat85/bin/shutdown.sh
-%endif
-fi
-
-%if %{with_systemd}
-systemctl enable ea-tomcat85
-systemctl daemon-reload
-systemctl start ea-tomcat85
-%else
-/opt/cpanel/ea-tomcat85/bin/startup.sh
-%endif
+/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
 
 %preun
 
-# checking the pid file helps avoid scary sounding warnings like:
-#   $CATALINA_PID was set but the specified file does not exist. Is Tomcat running? Stop aborted.
-if [ -e "/var/run/catalina.pid" ]; then
-%if %{with_systemd}
-systemctl stop ea-tomcat85
-systemctl disable ea-tomcat85
-systemctl daemon-reload
-%else
-/opt/cpanel/ea-tomcat85/bin/shutdown.sh
-%endif
-fi
+/usr/local/cpanel/scripts/restartsrv_ea_tomcat85 stop
 
 # We don't want to remove the user if the customer had the user already
 # Might have data they want including mail spool
@@ -175,6 +158,8 @@ fi
 
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
+/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
+/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea_tomcat85.pm
 %defattr(-,tomcat,nobody,-)
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
@@ -184,12 +169,15 @@ fi
 /etc/logrotate.d/ea-tomcat85
 %if %{with_systemd}
 # Must be root root here for write permissions
-%config(noreplace) %attr(0644,root,root) %{_unitdir}/ea-tomcat85.service
+%config(noreplace) %attr(0644,root,root) %{_unitdir}/ea_tomcat85.service
 %else
-%attr(0755,tomcat,nobody) %{_initddir}/ea-tomcat85
+%attr(0755,tomcat,nobody) %{_initddir}/ea_tomcat85
 %endif
 
 %changelog
+* Wed May 30 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-6
+- EA-7495: Add ULC restartsrv_ea_tomcat85 script
+
 * Thu May 24 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-5
 - EA-7514: Add support for skipping reconf/recbuild to cpanel script
 

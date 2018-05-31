@@ -167,31 +167,7 @@ sub _flush {
 
 sub _finalize {
     system('/usr/local/cpanel/scripts/rebuildhttpdconf') && die "Could not rebuild httpd.conf (exit $?)\n";
-
-    # stop and start, there is no restart - EA-7462
-    my $is_systemd = Cpanel::Sys::OS::getreleaseversion() >= 7.0 && -d '/etc/systemd/system/' ? 1 : 0;
-
-    if ( -e "/var/run/catalina.pid" ) {
-        if ($is_systemd) {
-            system('systemctl stop ea-tomcat85');
-            system('systemctl disable ea-tomcat85');
-            system('systemctl daemon-reload');
-        }
-        else {
-            system('/opt/cpanel/ea-tomcat85/bin/shutdown.sh');
-        }
-    }
-    if ($is_systemd) {
-        system('systemctl enable ea-tomcat85');
-        system('systemctl daemon-reload');
-        system('systemctl start ea-tomcat85');
-    }
-    else {
-        system('/opt/cpanel/ea-tomcat85/bin/startup.sh');
-    }
-
-    # /stop and start, there is no restart - EA-7462
-
+    system('/usr/local/cpanel/scripts/restartsrv_ea_tomcat85') && die "Could not restart tomcat (exit $?)\n";
     system('/usr/local/cpanel/scripts/restartsrv_httpd') && die "Could not restart httpd (exit $?)\n";
 
     return;
@@ -272,6 +248,7 @@ sub _get_new_host_element {
     my $xml = qq{
 <Host name="$domain" appBase="$docroot">
     <Alias>www.$domain</Alias>
+    <Alias>mail.$domain</Alias>
     <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
 </Host>
 };

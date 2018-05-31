@@ -79,14 +79,13 @@ case $1 in
         fi
         ;;
     restart)
-        # file=/usr/local/cpanel/scripts/restartsrv_ea-tomcat85 - EA-7462
-        #if [ ! -x $file ]; then
-        #    echo "Missing $file"
-        #    ERROR=1
-        #else
-        #    $file
-        #fi
-        echo -e "\e[00;33mrestartsrv_tomcat has not yet been implemented.\e[00m"
+        file=/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
+        if [ ! -x $file ]; then
+            echo "Missing $file"
+            ERROR=1
+        else
+            $file
+        fi
         ;;
     status|fullstatus)
         pid=$(tomcat_pid)
