@@ -25,6 +25,7 @@ use App::CmdDispatch;
 our $conf_name      = "ea-tomcat85-via-ajp.conf";
 our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
 our $work_dir       = "/opt/cpanel/ea-tomcat85/work/Catalina";
+our $conf_dir       = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
 my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
 my $cmds     = {
@@ -129,9 +130,11 @@ sub rem {
     }
     _write_serverxml($dom);
 
-    # cleanup work dir
-    if ( -d "$work_dir/$domain" ) {
-        Cpanel::SafeDir::RM::safermdir("$work_dir/$domain") or warn "Could not remove “$work_dir/$domain”: $!\n";
+    # cleanup work and conf dirs
+    for my $dir ( $work_dir, $conf_dir ) {
+        if ( -d "$dir/$domain" ) {
+            Cpanel::SafeDir::RM::safermdir("$dir/$domain") or warn "Could not remove “$dir/$domain”: $!\n";
+        }
     }
 
     # remove Apache includes
