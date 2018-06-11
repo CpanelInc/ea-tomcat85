@@ -126,7 +126,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 25;
+    plan tests => 26;
 
     my $dir = File::Temp->newdir();
 
@@ -135,6 +135,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
       or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_path missing?)\n");    # safecopy() already spews warnings and errors
     no warnings 'once';
     local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";
+    local $scripts::ea_tomcat85::work_dir       = "$dir/work";
+    mkdir $scripts::ea_tomcat85::work_dir;
     use warnings 'once';
 
     my $finalized = 0;
@@ -155,6 +157,7 @@ subtest "[subcmd] valid domain - happy path" => sub {
     for my $type ( "main", sort grep { $_ ne "main" } keys %dom_tests ) {
         my $dname = $dom_tests{$type};
 
+        mkdir "$scripts::ea_tomcat85::work_dir/$dname";
         my @tc_doms = _get_list();
         cmp_deeply( \@tc_doms, superbagof("localhost"), "pre $type sanity check: localhost is configured (list)" );
 
@@ -181,6 +184,7 @@ subtest "[subcmd] valid domain - happy path" => sub {
         trap { scripts::ea_tomcat85::run( "rem", $dname ) };
         is( $trap->exit, undef, "`rem <$type domain>` exits clean" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`rem <$type domain>` removes tomcat85 support" );
+        ok( !-d "$scripts::ea_tomcat85::work_dir/$dname", "`rem <$type domain>` cleans up work dir" );
 
         @tc_doms = _get_list();
         cmp_deeply( \@tc_doms, superbagof("localhost"), "`rem <$type domain>` does not list domain, localhost is listed (list)" );
