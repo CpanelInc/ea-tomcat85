@@ -43,7 +43,8 @@ Source6: Ea_tomcat85.pm
 Autoreq: 0
 
 Requires: java-1.8.0-openjdk java-1.8.0-openjdk-devel
-
+Requires: jakarta-commons-daemon jakarta-commons-daemon-jsvc
+Requires: mysql-connector-java
 Requires: ea-apache24-mod_proxy_ajp
 
 # Create Tomcat user/group as we definitely do not want this running as root.
