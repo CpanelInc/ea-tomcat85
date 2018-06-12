@@ -284,7 +284,7 @@ sub _write_conf {
     my ($file) = @_;
 
     my $string = q{<IfModule proxy_ajp_module>
-    ProxyPassMatch "^/(.*\.jsp|.*\.do|servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
+    ProxyPassMatch "^/(.*\.jsp|.*\.do|(?:.*/)?servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
 </IfModule>
 };
 
