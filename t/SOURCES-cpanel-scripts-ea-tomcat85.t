@@ -6,14 +6,16 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Test::Trap;
 use Test::Deep;
 use File::Temp;
 
 use FindBin;
 
-use Cpanel::FileUtils::Copy ();
+use Cpanel::FileUtils::Copy           ();
+use Cpanel::AccessIds                 ();
+use Cpanel::HTTP::Tiny::FastSSLVerify ();
 
 BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/t
     use lib "/usr/local/cpanel/t/lib";
@@ -229,11 +231,62 @@ subtest "flush" => sub {
     is( $finalized, 1, "flush sub command calls _finalize()" );
 };
 
+subtest "test" => sub {
+    plan tests => 10;
+
+    my $dir = File::Temp->newdir();
+    my $res_hr = { success => 1, content => "oh hai", status => 200 };
+
+    no warnings "redefine", "once";
+    local *scripts::ea_tomcat85::_process_args = sub {
+        my ( $app, $domain, @args ) = @_;
+        my $opts = {};
+        $opts->{verbose} = 1 if grep { $_ eq "--verbose" } @args;
+        return ( $app, "meuser", $domain, $opts );
+    };
+    local *Cpanel::AccessIds::do_as_user          = sub { return $dir };
+    local *Cpanel::HTTP::Tiny::FastSSLVerify::get = sub { return $res_hr };
+    use warnings "redefine", "once";
+
+    # no error: rendered
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: ✔︎ \.jsp is processed/, "test <domain> w/ no HTTP error and no JSP tags reports success" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # --verbose
+    trap { scripts::ea_tomcat85::run( "test", "foo.com", "--verbose" ) };
+    like( $trap->stdout, qr/Testing via this JSP source code:/,  "test <domain> --verbose outputs JSP source - 1" );
+    like( $trap->stdout, qr/<%=/m,                               "test <domain> --verbose outputs JSP source - 2" );
+    like( $trap->stdout, qr/JSP Response HTML \(200\):\noh hai/, "test <domain> --verbose outputs HTML result" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # no error: not rendered
+    $res_hr->{content} = "<%= hi %>";
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: ✗ \.jsp is not processed/, "test <domain> w/ no HTTP error and JSP tags reports failure" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # error
+    $res_hr->{success} = "";
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: HTTP request failed/, "test <domain> w/ HTTP error indicates its failure" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+};
+
 # TODO: sad path edge case tests (like handling partially enabled domains)
 
 ###############
 #### helpers ##
 ###############
+
+sub _dir_cnt {
+    my ($dir) = @_;
+    opendir my $dh, $dir or die "Could not opendir “$dir”: $!\n";
+    my @contents = grep { $_ ne "." && $_ ne ".." } readdir($dh);
+    closedir $dh;
+
+    return scalar(@contents);
+}
 
 sub _get_list {
     trap { scripts::ea_tomcat85::run("list") };

@@ -17,7 +17,8 @@ use Cpanel::Sys::OS                      ();
 use Cpanel::Config::LoadUserDomains      ();
 use Cpanel::AcctUtils::DomainOwner::Tiny ();
 use Cpanel::ConfigFiles::Apache 'apache_paths_facade';    # see POD for import specifics
-use Cpanel::SafeDir::RM ();
+use Cpanel::SafeDir::RM               ();
+use Cpanel::HTTP::Tiny::FastSSLVerify ();
 
 use XML::LibXML ();
 use App::CmdDispatch;
@@ -29,6 +30,12 @@ our $conf_dir       = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
 my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
 my $cmds     = {
+    test => {
+        code     => \&test,
+        clue     => 'test <domain> [--verbose]',
+        abstract => 'test .jsp support',
+        help     => "test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response in addition to the status message",
+    },
     add => {
         code     => \&add,
         clue     => 'add <domain> [--no-flush]',
@@ -149,9 +156,91 @@ sub rem {
     return;
 }
 
+sub test {
+    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
+
+    my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
+    my $jsp = "cpanel_ea4_jsp_ea-tomcat85-$$.jsp";
+
+    my $jsp_cont = _get_jsp_cont();
+
+    if ( $opts_hr->{verbose} ) {
+        print "Testing via this JSP source code:\n$jsp_cont\n----\n";
+    }
+
+    # create $docroot/$jsp
+    Cpanel::FileUtils::Write::overwrite( "$docroot/$jsp", $jsp_cont, 0644 );
+
+    # hit $domain/$jsp
+    my $res = Cpanel::HTTP::Tiny::FastSSLVerify->new()->get("http://$domain/$jsp");
+    if ( $opts_hr->{verbose} ) {
+        print "JSP Response HTML ($res->{status}):\n$res->{content}\n----\n";
+    }
+    if ( $res->{success} ) {
+        if ( $res->{content} =~ m/<%=/ ) {
+            print "$domain: ✗ .jsp is not processed\n";
+        }
+        else {
+            print "$domain: ✔︎ .jsp is processed\n";
+        }
+    }
+    else {
+        print "$domain: HTTP request failed\n";
+    }
+
+    # remove $docroot/$jsp
+    unlink "$docroot/$jsp";
+
+    return;
+}
+
 ###############
 #### helpers ##
 ###############
+
+sub _get_jsp_cont {
+    return <<"END_JSP";
+<html>
+   <head>
+      <title>Test JSP Page</title>
+      <style type="text/css">
+         dt {
+             float: left;
+             width: 30%;
+             text-align: right;
+             padding: .25em;
+             clear: left;
+             font-weight: bold;
+         }
+         dd {
+             float: left;
+             width: 60%;
+             padding: .25em 0;
+         }
+         dl:after {content:"";display:table;clear:both;} // will not work when there are mutli-dt per dd or multi-dd per dt
+      </style>
+   </head>
+   <body>
+      <h1>Test JSP Page</h1>
+      <p>This is a page to verify that .jsp support has been enabled</p>
+      <dl>
+         <dt>Date</dt><dd><%= new java.util.Date() %></dd>
+         <dt>Remote Address</dt><dd><%= request.getRemoteAddr() %></dd>
+         <dt>Request Method</dt><dd><%= request.getMethod() %></dd>
+         <dt>Servlet Path</dt><dd><%= request.getServletPath() %></dd>
+         <dt>Tomcat Version</dt><dd><%= application.getServerInfo() %></dd>
+         <dt>Servlet Specification Version</dt><dd><%= application.getMajorVersion() %>.<%= application.getMinorVersion() %></dd>
+         <dt>JSP Version</dt><dd><%= JspFactory.getDefaultFactory().getEngineInfo().getSpecificationVersion() %></dd>
+         <dt>JAVA_HOME</dt><dd><%= System.getenv("JAVA_HOME") %></dd>
+         <dt>CATALINA_HOME</dt><dd><%= System.getenv("CATALINA_HOME") %></dd>
+         <dt>CATALINA_BASE</dt><dd><%= System.getenv("CATALINA_BASE") %></dd>
+         <dt>CATALINA_OPTS</dt><dd><%= System.getenv("CATALINA_OPTS") %></dd>
+      </dl>
+   </body>
+</html>
+END_JSP
+
+}
 
 sub _bail {
     my ( $app, $msg ) = @_;
@@ -194,8 +283,9 @@ sub _process_args {
     my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
     _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
 
-    my $opts = { no_flush => 0 };
+    my $opts = { no_flush => 0, verbose => 0 };
     $opts->{no_flush} = 1 if grep { $_ eq "--no-flush" } @args;
+    $opts->{verbose}  = 1 if grep { $_ eq "--verbose" } @args;
 
     return ( $app, $user, $domain, $opts );
 }
