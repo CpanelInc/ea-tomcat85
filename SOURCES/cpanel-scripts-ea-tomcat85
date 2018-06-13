@@ -177,8 +177,7 @@ sub test {
         print "JSP Response HTML ($res->{status}):\n$res->{content}\n----\n";
     }
     if ( $res->{success} ) {
-
-        if ( $res->{content} =~ m/\<\%=/ || $res->{content} !~ m/CATALINA_HOME/ ) {
+        if ( $res->{content} =~ m/<%=/ ) {
             print "$domain: ✗ .jsp is not processed\n";
         }
         else {
