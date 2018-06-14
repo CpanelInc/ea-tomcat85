@@ -84,7 +84,7 @@ subtest "help/hint [subcmd]" => sub {
 };
 
 subtest "[subcmd] invalid-arg" => sub {
-    plan tests => 42;
+    plan tests => 43;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };
@@ -125,6 +125,10 @@ subtest "[subcmd] invalid-arg" => sub {
     like( $trap->stderr, qr/“list” does not take any arguments/, "`list <ARG>` gives warning" );
     like( $trap->stdout, qr/given domain/, "`list <ARG>` does help" );
     is( $trap->exit, 1, "`list <ARG>` exits unclean" );
+
+    local $ENV{"scripts::ea_tomcat85::bail_die"} = 1;
+    trap { scripts::ea_tomcat85::run( "list", "derp" ) };
+    like( $trap->die, qr/“list” does not take any arguments/, "ENV scripts::ea_tomcat85::bail_die make bail out a die instead of exit" );
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {

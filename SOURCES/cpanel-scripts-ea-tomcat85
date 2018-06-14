@@ -246,6 +246,9 @@ sub _bail {
     my ( $app, $msg ) = @_;
 
     chomp($msg);
+
+    die "$msg\n" if $ENV{"scripts::ea_tomcat85::bail_die"};
+
     warn "$msg\n";
     $app->help();
     exit(1);    # there is no return()ing from this lol
