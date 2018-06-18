@@ -23,14 +23,15 @@ use Cpanel::HTTP::Tiny::FastSSLVerify ();
 use XML::LibXML ();
 use App::CmdDispatch;
 
-our $conf_name      = "ea-tomcat85-via-ajp.conf";
-our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
-our $work_dir       = "/opt/cpanel/ea-tomcat85/work/Catalina";
-our $conf_dir       = "/opt/cpanel/ea-tomcat85/conf/Catalina";
+our $conf_name     = "ea-tomcat85-via-ajp.conf";
+our $serverxml_dir = "/opt/cpanel/ea-tomcat85/conf";
+our $work_dir      = "/opt/cpanel/ea-tomcat85/work/Catalina";
+our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
 my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
 my $cmds     = {
-    test => {
+    refresh => {},
+    test    => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
         abstract => 'test .jsp support',
@@ -50,12 +51,16 @@ my $cmds     = {
     },
     status => {
         code => sub {
-            my ( $app, $user, $domain ) = _process_args(@_);
+            my ( $app, $user, $domain, $opts ) = _process_args(@_);
             print "$domain: " . ( _domain_has_tomcat85( $user, $domain ) ? "enabled" : "disabled" ) . "\n";
+            if ( $opts->{verbose} ) {
+
+                # list all items and their status
+            }
         },
-        clue     => 'status <domain>',
+        clue     => 'status <domain> [--verbose]',
         abstract => 'Check for tomcat 8.5 support',
-        help     => 'Check for tomcat 8.5 support for the given domain.',
+        help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output additional diagnostic information."
     },
     list => {
         code => sub {
@@ -340,7 +345,7 @@ sub _get_host_nodes_for {
 my $_dom;
 
 sub _get_serverxml_dom {
-    $_dom ||= XML::LibXML->load_xml( location => $serverxml_path );
+    $_dom ||= XML::LibXML->load_xml( location => "$serverxml_dir/server.xml" );
     return $_dom;
 }
 
@@ -356,6 +361,9 @@ sub _get_new_host_element {
     <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
 </Host>
 };
+
+    # if (-e "$serverxml_dir/ea-tomcat85.local.host_node.tt") { $xml = template };
+
     return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
 }
 
@@ -371,7 +379,7 @@ sub _write_serverxml {
     # reset internal DOM singleton
     $_dom = undef;
 
-    return Cpanel::FileUtils::Write::overwrite( $serverxml_path, $xml );
+    return Cpanel::FileUtils::Write::overwrite( "$serverxml_dir/server.xml", $xml );
 }
 
 sub _write_conf {
@@ -381,6 +389,8 @@ sub _write_conf {
     ProxyPassMatch "^/(.*\.jsp|.*\.do|(?:.*/)?servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
 </IfModule>
 };
+
+    # if (-e "$serverxml_dir/ea-tomcat85.local.httpd_include") { $string = template };
 
     my $dir = $file;
     $dir =~ s{/[^/]+$}{};
