@@ -89,6 +89,7 @@ run(@ARGV) if !caller;
 
 sub run {
     my (@argv) = @_;
+    $ENV{TERM} = "xterm-256color" if !$ENV{TERM};    # avoid needless: Cannot find termcap: TERM not set at …/Term/ReadLine.pm line 373.
     App::CmdDispatch->new( $cmds, $opts )->run(@argv);
 }
 
