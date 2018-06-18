@@ -367,7 +367,9 @@ sub _get_new_host_element {
 </Host>
 };
 
-    # TODO: if (-e "$serverxml_dir/ea-tomcat85.local.host_node.tt") { $xml = template };
+    if ( -e "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt" ) {
+        $xml = TODO template;
+    }
 
     return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
 }
@@ -395,7 +397,12 @@ sub _write_conf {
 </IfModule>
 };
 
-    # TODO: if (-e "$serverxml_dir/ea-tomcat85.local.httpd_include") { $string = template };
+    if ( -e "$serverxml_dir/ea-tomcat85.local.httpd_include" ) {
+        open my $fh, "<", "$serverxml_dir/ea-tomcat85.local.httpd_include" or die $!;
+        local $/;
+        $string = <$fh>;
+        close $fh;
+    }
 
     my $dir = $file;
     $dir =~ s{/[^/]+$}{};
