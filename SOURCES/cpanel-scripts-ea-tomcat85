@@ -30,8 +30,9 @@ our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
 my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
 my $cmds     = {
-    refresh => {},
-    test    => {
+
+    # TODO: refresh => {},
+    test => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
         abstract => 'test .jsp support',
@@ -54,8 +55,12 @@ my $cmds     = {
             my ( $app, $user, $domain, $opts ) = _process_args(@_);
             print "$domain: " . ( _domain_has_tomcat85( $user, $domain ) ? "enabled" : "disabled" ) . "\n";
             if ( $opts->{verbose} ) {
-
-                # list all items and their status
+                my $ssl_inc = _get_ssl_conf_path( $user, $domain );
+                my $std_inc = _get_nonssl_conf_path( $user, $domain );
+                my $host_node = _get_host_nodes_for( $user, $domain );
+                print "\t", ( -f $std_inc ? "✔︎" : "✗" ), " – $std_inc\n";
+                print "\t", ( -f $ssl_inc ? "✔︎" : "✗" ), " – $ssl_inc\n";
+                print "\t", ( $host_node  ? "✔︎" : "✗" ), " – $serverxml_dir/server.xml Host node\n";
             }
         },
         clue     => 'status <domain> [--verbose]',
@@ -362,7 +367,7 @@ sub _get_new_host_element {
 </Host>
 };
 
-    # if (-e "$serverxml_dir/ea-tomcat85.local.host_node.tt") { $xml = template };
+    # TODO: if (-e "$serverxml_dir/ea-tomcat85.local.host_node.tt") { $xml = template };
 
     return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
 }
@@ -390,7 +395,7 @@ sub _write_conf {
 </IfModule>
 };
 
-    # if (-e "$serverxml_dir/ea-tomcat85.local.httpd_include") { $string = template };
+    # TODO: if (-e "$serverxml_dir/ea-tomcat85.local.httpd_include") { $string = template };
 
     my $dir = $file;
     $dir =~ s{/[^/]+$}{};
