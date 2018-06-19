@@ -23,39 +23,53 @@ use Cpanel::HTTP::Tiny::FastSSLVerify ();
 use XML::LibXML ();
 use App::CmdDispatch;
 
-our $conf_name      = "ea-tomcat85-via-ajp.conf";
-our $serverxml_path = "/opt/cpanel/ea-tomcat85/conf/server.xml";
-our $work_dir       = "/opt/cpanel/ea-tomcat85/work/Catalina";
-our $conf_dir       = "/opt/cpanel/ea-tomcat85/conf/Catalina";
+our $conf_name     = "ea-tomcat85-via-ajp.conf";
+our $serverxml_dir = "/opt/cpanel/ea-tomcat85/conf";
+our $work_dir      = "/opt/cpanel/ea-tomcat85/work/Catalina";
+our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
-my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
+my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for any changes to take effect.";
 my $cmds     = {
+    refresh => {
+        code     => \&refresh,
+        clue     => "refresh <domain> [--no-flush]",
+        abstract => 'refresh tomcat configuration',
+        help     => "Ensure the given domain’s has the latest and complete tomcat configuration\n\t$no_flush",
+    },
     test => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
         abstract => 'test .jsp support',
-        help     => "test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response in addition to the status message",
+        help     => "Test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response as well as the status message",
     },
     add => {
         code     => \&add,
         clue     => 'add <domain> [--no-flush]',
-        abstract => 'Add tomcat 8.5 support',
+        abstract => 'add tomcat 8.5 support',
         help     => "Add tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     rem => {
         code     => \&rem,
         clue     => 'rem <domain> [--no-flush]',
-        abstract => 'Remove tomcat 8.5 support',
+        abstract => 'remove tomcat 8.5 support',
         help     => "Remove tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     status => {
         code => sub {
-            my ( $app, $user, $domain ) = _process_args(@_);
+            my ( $app, $user, $domain, $opts ) = _process_args(@_);
             print "$domain: " . ( _domain_has_tomcat85( $user, $domain ) ? "enabled" : "disabled" ) . "\n";
+            if ( $opts->{verbose} ) {
+                my $ssl_inc = _get_ssl_conf_path( $user, $domain );
+                my $std_inc = _get_nonssl_conf_path( $user, $domain );
+                my $host_node = _get_host_nodes_for( $user, $domain );
+                print "\t", ( -f $std_inc ? "✔︎" : "✗" ), " – $std_inc\n";
+                print "\t", ( -f $ssl_inc ? "✔︎" : "✗" ), " – $ssl_inc\n";
+                print "\t", ( $host_node  ? "✔︎" : "✗" ), " – $serverxml_dir/server.xml Host node\n";
+            }
         },
-        clue     => 'status <domain>',
-        abstract => 'Check for tomcat 8.5 support',
-        help     => 'Check for tomcat 8.5 support for the given domain.',
+        clue     => 'status <domain> [--verbose]',
+        abstract => 'check for tomcat 8.5 support',
+        help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output more diagnostic information."
     },
     list => {
         code => sub {
@@ -66,13 +80,13 @@ my $cmds     = {
             }
         },
         clue     => 'list',
-        abstract => 'List domains tomcat 8.5 support',
+        abstract => 'list domains tomcat 8.5 support',
         help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
     },
     flush => {
         code     => sub { _finalize() },
         clue     => 'flush',
-        abstract => 'Rebuild conf and restart tomcat 8.5 and apache',
+        abstract => 'rebuild conf and restart tomcat 8.5 and apache',
         help     => 'Rebuild apache config file to get correct includes, then restart tomcat 8.5 and apache',
     },
 };
@@ -89,7 +103,7 @@ run(@ARGV) if !caller;
 
 sub run {
     my (@argv) = @_;
-    local $ENV{TERM} = $ENV{TERM} || "xterm-256color";    # avoid needless: Cannot find termcap: TERM not set at …/Term/ReadLine.pm line 373.
+    local $ENV{TERM} = $ENV{TERM} || "xterm-256color";    # non-CLI modulino avoid needless: Cannot find termcap: TERM not set at …/Term/ReadLine.pm line 373.
     App::CmdDispatch->new( $cmds, $opts )->run(@argv);
 }
 
@@ -127,7 +141,7 @@ sub add {
 sub rem {
     my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
 
-    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
+    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain, 1 );
 
     print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
 
@@ -191,6 +205,15 @@ sub test {
 
     # remove $docroot/$jsp
     unlink "$docroot/$jsp";
+
+    return;
+}
+
+sub refresh {
+    my ( $app, $domain, @args ) = @_;
+
+    rem( $app, $domain, @args, "--no-flush" );
+    add( $app, $domain, @args );
 
     return;
 }
@@ -340,7 +363,7 @@ sub _get_host_nodes_for {
 my $_dom;
 
 sub _get_serverxml_dom {
-    $_dom ||= XML::LibXML->load_xml( location => $serverxml_path );
+    $_dom ||= XML::LibXML->load_xml( location => "$serverxml_dir/server.xml" );
     return $_dom;
 }
 
@@ -356,6 +379,14 @@ sub _get_new_host_element {
     <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
 </Host>
 };
+
+    if ( -e "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt" ) {
+        require Cpanel::Template;
+        my $tt = Cpanel::Template->get_tt_obj( { ABSOLUTE => 1 } );
+        $xml = "";
+        $tt->process( "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt", { domain => $domain, docroot => $docroot }, \$xml ) || die $tt->error(), "\n";
+    }
+
     return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
 }
 
@@ -371,7 +402,7 @@ sub _write_serverxml {
     # reset internal DOM singleton
     $_dom = undef;
 
-    return Cpanel::FileUtils::Write::overwrite( $serverxml_path, $xml );
+    return Cpanel::FileUtils::Write::overwrite( "$serverxml_dir/server.xml", $xml );
 }
 
 sub _write_conf {
@@ -381,6 +412,13 @@ sub _write_conf {
     ProxyPassMatch "^/(.*\.jsp|.*\.do|(?:.*/)?servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
 </IfModule>
 };
+
+    if ( -e "$serverxml_dir/ea-tomcat85.local.httpd_include" ) {
+        open my $fh, "<", "$serverxml_dir/ea-tomcat85.local.httpd_include" or die $!;
+        local $/;
+        $string = <$fh>;
+        close $fh;
+    }
 
     my $dir = $file;
     $dir =~ s{/[^/]+$}{};
