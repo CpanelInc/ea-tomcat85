@@ -371,7 +371,7 @@ sub _get_new_host_element {
         require Cpanel::Template;
         my $tt  = Cpanel::Template->get_tt_obj();
         my $xml = '';
-        $template->process( "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt", { domain => $domain, docroot => $docroot }, \$xml ) || die $tt->error(), "\n";
+        $tt->process( "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt", { domain => $domain, docroot => $docroot }, \$xml ) || die $tt->error(), "\n";
     }
 
     return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
