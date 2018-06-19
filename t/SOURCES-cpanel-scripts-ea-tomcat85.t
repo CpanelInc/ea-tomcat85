@@ -278,8 +278,29 @@ subtest "[subcmd] valid domain - happy path" => sub {
 };
 
 subtest "refresh" => sub {
-    plan tests => 1;
-    ok("TODO");
+    plan tests => 6;
+
+    my $dname = "foo$$.test";
+    my @rem;
+    my @add;
+    no warnings "redefine", "once";
+    local *scripts::ea_tomcat85::add = sub {
+        shift;
+        @add = @_;
+        ok( @rem, "rem() called before add()" );
+    };
+    local *scripts::ea_tomcat85::rem = sub { shift; @rem = @_ };
+    use warnings "redefine", "once";
+
+    trap { scripts::ea_tomcat85::run( "refresh", $dname ) };
+    is_deeply( \@rem, [ $dname, "--no-flush" ], "refresh <domain>: rem() called w/ expected args (including no-flush option)" );
+    is_deeply( \@add, [$dname], "refresh <domain>: add() called w/ expected args (including NO no-flush option)" );
+
+    @rem = ();
+    @add = ();
+    trap { scripts::ea_tomcat85::run( "refresh", $dname, "--no-flush" ) };
+    is_deeply( \@rem, [ $dname, "--no-flush", "--no-flush" ], "refresh <domain> --no-flush: rem() called w/ expected args (including given no-flush option)" );
+    is_deeply( \@add, [ $dname, "--no-flush" ], "refresh <domain> --no-flush: add() called w/ expected args including given no-flush option" );
 };
 
 subtest "flush" => sub {
