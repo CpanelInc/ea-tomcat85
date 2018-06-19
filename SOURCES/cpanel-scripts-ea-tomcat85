@@ -383,8 +383,8 @@ sub _get_new_host_element {
 
     if ( -e "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt" ) {
         require Cpanel::Template;
-        my $tt  = Cpanel::Template->get_tt_obj();
-        my $xml = '';
+        my $tt = Cpanel::Template->get_tt_obj( { ABSOLUTE => 1 } );
+        $xml = "";
         $tt->process( "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt", { domain => $domain, docroot => $docroot }, \$xml ) || die $tt->error(), "\n";
     }
 

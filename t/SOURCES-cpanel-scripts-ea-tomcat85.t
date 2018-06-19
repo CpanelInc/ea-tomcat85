@@ -11,11 +11,13 @@ use Test::Trap;
 use Test::Deep;
 use File::Temp;
 
+use Path::Tiny;
 use FindBin;
 
 use Cpanel::FileUtils::Copy           ();
 use Cpanel::AccessIds                 ();
 use Cpanel::HTTP::Tiny::FastSSLVerify ();
+use Cpanel::FileUtils::Write          ();
 
 BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/t
     use lib "/usr/local/cpanel/t/lib";
@@ -132,7 +134,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 29;
+    plan tests => 31;
 
     my $dir = File::Temp->newdir();
 
@@ -221,8 +223,22 @@ subtest "[subcmd] valid domain - happy path" => sub {
         is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
 
-        # templates
-        ok("TODO");
+        # custom files
+        Cpanel::FileUtils::Write::overwrite( "$scripts::ea_tomcat85::serverxml_dir/ea-tomcat85.local.host_node.xml.tt", qq{<Host name="[% domain %]" appBase="[% docroot %]"><Alias>$$ $0</Alias></Host>} );
+        Cpanel::FileUtils::Write::overwrite( "$scripts::ea_tomcat85::serverxml_dir/ea-tomcat85.local.httpd_include",    "# $$ $0" );
+        trap { scripts::ea_tomcat85::run( "add", $dname, "--no-flush" ) };
+        like(
+            path("$scripts::ea_tomcat85::serverxml_dir/server.xml")->slurp(),
+            qr{<Alias>$$ \Q$0\E</Alias>},
+            "ea-tomcat85.local.host_node.xml.tt is used when it exists"
+        );
+        for my $type (qw(std ssl)) {
+            like(
+                path("$dir/$type/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf")->slurp(),
+                qr/# $$ \Q$0\E/,
+                "ea-tomcat85.local.httpd_include is used when it exists"
+            );
+        }
 
         # status w/ --verbose
         ok("TODO");
