@@ -221,10 +221,10 @@ subtest "[subcmd] valid domain - happy path" => sub {
         is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
 
-        # TODO: templates
+        # templates
         ok("TODO");
 
-        # TODO: status w/ --verbose
+        # status w/ --verbose
         ok("TODO");
     }
 };
@@ -288,7 +288,7 @@ subtest "test" => sub {
     is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
 };
 
-# TODO: sad path edge case tests (like handling partially enabled domains)
+# ¿ TODO/YAGNI: sad path edge case tests
 
 ###############
 #### helpers ##
