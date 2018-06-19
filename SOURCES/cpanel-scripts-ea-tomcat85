@@ -31,7 +31,12 @@ our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
 my $cmds     = {
 
-    # TODO: refresh => {},
+    refresh => {
+        code     => \&refresh,
+        clue     => "refresh <domain>",
+        abstract => 'refresh the given domain’s tomcat configuration',
+        help     => 'ensure the given domain’s has the latest and complete tomcat configuration',
+    },
     test => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
@@ -137,7 +142,7 @@ sub add {
 sub rem {
     my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
 
-    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain );
+    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain, 1 );
 
     print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
 
@@ -201,6 +206,15 @@ sub test {
 
     # remove $docroot/$jsp
     unlink "$docroot/$jsp";
+
+    return;
+}
+
+sub refresh {
+    my @args = @_;
+
+    rem( @args, "--no-flush" );
+    add(@args);
 
     return;
 }
