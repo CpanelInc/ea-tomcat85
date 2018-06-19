@@ -27,7 +27,7 @@ BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/
 
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
-my @subcmds = qw(status add rem);
+my @subcmds = qw(status add rem refresh);
 
 # FWiW: this test may seem odd:
 #     is( $trap->exit, undef, "… exits clean" );
@@ -35,7 +35,7 @@ my @subcmds = qw(status add rem);
 # the tests we call the function directly so no exit() was invoked
 
 subtest "help/hint [subcmd]" => sub {
-    plan tests => 40;
+    plan tests => 48;
 
     # Commands
 
@@ -86,7 +86,7 @@ subtest "help/hint [subcmd]" => sub {
 };
 
 subtest "[subcmd] invalid-arg" => sub {
-    plan tests => 43;
+    plan tests => 55;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };

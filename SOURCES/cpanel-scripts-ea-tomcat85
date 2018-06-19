@@ -28,31 +28,30 @@ our $serverxml_dir = "/opt/cpanel/ea-tomcat85/conf";
 our $work_dir      = "/opt/cpanel/ea-tomcat85/work/Catalina";
 our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
 
-my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for the changes to take effect.";
+my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for any changes to take effect.";
 my $cmds     = {
-
     refresh => {
         code     => \&refresh,
-        clue     => "refresh <domain>",
+        clue     => "refresh <domain> [--no-flush]",
         abstract => 'refresh tomcat configuration',
-        help     => 'ensure the given domain’s has the latest and complete tomcat configuration',
+        help     => "Ensure the given domain’s has the latest and complete tomcat configuration\n\t$no_flush",
     },
     test => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
         abstract => 'test .jsp support',
-        help     => "test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response as well as the status message",
+        help     => "Test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response as well as the status message",
     },
     add => {
         code     => \&add,
         clue     => 'add <domain> [--no-flush]',
-        abstract => 'Add tomcat 8.5 support',
+        abstract => 'add tomcat 8.5 support',
         help     => "Add tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     rem => {
         code     => \&rem,
         clue     => 'rem <domain> [--no-flush]',
-        abstract => 'Remove tomcat 8.5 support',
+        abstract => 'remove tomcat 8.5 support',
         help     => "Remove tomcat 8.5 support to the given domain.\n\t$no_flush",
     },
     status => {
@@ -69,7 +68,7 @@ my $cmds     = {
             }
         },
         clue     => 'status <domain> [--verbose]',
-        abstract => 'Check for tomcat 8.5 support',
+        abstract => 'check for tomcat 8.5 support',
         help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output more diagnostic information."
     },
     list => {
@@ -81,13 +80,13 @@ my $cmds     = {
             }
         },
         clue     => 'list',
-        abstract => 'List domains tomcat 8.5 support',
+        abstract => 'list domains tomcat 8.5 support',
         help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
     },
     flush => {
         code     => sub { _finalize() },
         clue     => 'flush',
-        abstract => 'Rebuild conf and restart tomcat 8.5 and apache',
+        abstract => 'rebuild conf and restart tomcat 8.5 and apache',
         help     => 'Rebuild apache config file to get correct includes, then restart tomcat 8.5 and apache',
     },
 };
@@ -211,10 +210,10 @@ sub test {
 }
 
 sub refresh {
-    my @args = @_;
+    my ( $app, $domain, @args ) = @_;
 
-    rem( @args, "--no-flush" );
-    add(@args);
+    rem( $app, $domain, @args, "--no-flush" );
+    add( $app, $domain, @args );
 
     return;
 }
