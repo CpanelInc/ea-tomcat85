@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 6
+%define release_prefix 7
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -175,6 +175,22 @@ fi
 %endif
 
 %changelog
+* Tue Jun 19 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-7
+- EA-7489: General UX Improvements
+    RPM:
+
+    - add Requires for mysql-connector-java
+    - add Requires for jakarta-commons-daemon and jakarta-commons-daemon-jscv
+
+    cpanel script:
+
+    - Have its Include match `/servlets?/` in subdirectories
+    - Add `refresh` subcommand
+    - Add --verbose support to `status` sub command
+    - Add support for custom server.xml `<Host>` entry
+    - Add support for custom httpd Include
+    - cleanup domain’s `work/` and `conf/` files
+
 * Wed May 30 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-6
 - EA-7495: Add ULC restartsrv_ea_tomcat85 script
 
