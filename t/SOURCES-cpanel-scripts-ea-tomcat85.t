@@ -134,7 +134,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 31;
+    plan tests => 50;
 
     my $dir = File::Temp->newdir();
 
@@ -241,7 +241,39 @@ subtest "[subcmd] valid domain - happy path" => sub {
         }
 
         # status w/ --verbose
-        ok("TODO");
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: enabled/,                   "status <$type domain> --verbose - (when enabled) shows overall status" );
+        like( $trap->stdout, qr{✔︎.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled) shows SSL inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled) shows STD inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},          "status <$type domain> --verbose - (when enabled) shows server.xml  status (✔︎)" );
+
+        unlink "$dir/ssl/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf";
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,                  "status <$type domain> --verbose - (when enabled, no ssl) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E},    "status <$type domain> --verbose - (when enabled, no ssl) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✔︎.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no ssl) shows STD inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},          "status <$type domain> --verbose - (when enabled, no ssl) shows server.xml  status (✔︎)" );
+
+        unlink "$dir/std/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf";
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,               "status <$type domain> --verbose - (when enabled, no std) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no std) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no std) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},       "status <$type domain> --verbose - (when enabled, no std) shows server.xml  status (✔︎)" );
+
+        trap { scripts::ea_tomcat85::run( "remove", $dname, "--no-flush" ) };
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,               "status <$type domain> --verbose - (when disabled) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✗.*server\.xml Host node},          "status <$type domain> --verbose - (when disabled) shows server.xml  status (✗)" );
+
+        path("$dir/ssl/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf")->spew("oh hai");
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,                  "status <$type domain> --verbose - (when disabled, straggling inc) shows overall status" );
+        like( $trap->stdout, qr{✔︎.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled, straggling inc) shows SSL inc status (✔︎)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E},    "status <$type domain> --verbose - (when disabled, straggling inc) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✗.*server\.xml Host node},             "status <$type domain> --verbose - (when disabled, straggling inc) shows server.xml  status (✗)" );
     }
 };
 
