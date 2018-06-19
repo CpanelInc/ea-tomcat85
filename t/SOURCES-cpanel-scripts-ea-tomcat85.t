@@ -6,7 +6,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 use Test::Trap;
 use Test::Deep;
 use File::Temp;
@@ -132,7 +132,7 @@ subtest "[subcmd] invalid-arg" => sub {
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 27;
+    plan tests => 29;
 
     my $dir = File::Temp->newdir();
 
@@ -220,7 +220,18 @@ subtest "[subcmd] valid domain - happy path" => sub {
 
         is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
+
+        # TODO: templates
+        ok("TODO");
+
+        # TODO: status w/ --verbose
+        ok("TODO");
     }
+};
+
+subtest "refresh" => sub {
+    plan tests => 1;
+    ok("TODO");
 };
 
 subtest "flush" => sub {
