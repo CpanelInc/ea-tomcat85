@@ -137,8 +137,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
     my $dir = File::Temp->newdir();
 
     # since server.xml and this script are installed by the same RPM this should be good
-    Cpanel::FileUtils::Copy::safecopy( $scripts::ea_tomcat85::serverxml_dir, $dir )
-      or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_dir missing?)\n");    # safecopy() already spews warnings and errors
+    Cpanel::FileUtils::Copy::safecopy( "$scripts::ea_tomcat85::serverxml_dir/server.xml", $dir )
+      or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_dir/server.xml missing?)\n");    # safecopy() already spews warnings and errors
     no warnings 'once';
     local $scripts::ea_tomcat85::serverxml_dir = $dir;
     local $scripts::ea_tomcat85::work_dir      = "$dir/work";

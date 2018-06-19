@@ -34,14 +34,14 @@ my $cmds     = {
     refresh => {
         code     => \&refresh,
         clue     => "refresh <domain>",
-        abstract => 'refresh the given domain’s tomcat configuration',
+        abstract => 'refresh tomcat configuration',
         help     => 'ensure the given domain’s has the latest and complete tomcat configuration',
     },
     test => {
         code     => \&test,
         clue     => 'test <domain> [--verbose]',
         abstract => 'test .jsp support',
-        help     => "test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response in addition to the status message",
+        help     => "test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response as well as the status message",
     },
     add => {
         code     => \&add,
@@ -70,7 +70,7 @@ my $cmds     = {
         },
         clue     => 'status <domain> [--verbose]',
         abstract => 'Check for tomcat 8.5 support',
-        help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output additional diagnostic information."
+        help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output more diagnostic information."
     },
     list => {
         code => sub {
