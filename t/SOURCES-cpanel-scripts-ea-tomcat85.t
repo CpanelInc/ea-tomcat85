@@ -6,14 +6,18 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use Test::Trap;
 use Test::Deep;
 use File::Temp;
 
+use Path::Tiny;
 use FindBin;
 
-use Cpanel::FileUtils::Copy ();
+use Cpanel::FileUtils::Copy           ();
+use Cpanel::AccessIds                 ();
+use Cpanel::HTTP::Tiny::FastSSLVerify ();
+use Cpanel::FileUtils::Write          ();
 
 BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/t
     use lib "/usr/local/cpanel/t/lib";
@@ -23,7 +27,7 @@ BEGIN {    # some voo doo necessary since the test isn’t in /usr/local/cpanel/
 
 require_ok("$FindBin::Bin/../SOURCES/cpanel-scripts-ea-tomcat85") or die "Could not load scripts::ea_tomcat85 modulino for testing\n";
 
-my @subcmds = qw(status add rem);
+my @subcmds = qw(status add rem refresh);
 
 # FWiW: this test may seem odd:
 #     is( $trap->exit, undef, "… exits clean" );
@@ -31,7 +35,7 @@ my @subcmds = qw(status add rem);
 # the tests we call the function directly so no exit() was invoked
 
 subtest "help/hint [subcmd]" => sub {
-    plan tests => 40;
+    plan tests => 48;
 
     # Commands
 
@@ -82,7 +86,7 @@ subtest "help/hint [subcmd]" => sub {
 };
 
 subtest "[subcmd] invalid-arg" => sub {
-    plan tests => 42;
+    plan tests => 55;
 
     for my $subcmd (@subcmds) {
         trap { scripts::ea_tomcat85::run($subcmd) };
@@ -123,18 +127,26 @@ subtest "[subcmd] invalid-arg" => sub {
     like( $trap->stderr, qr/“list” does not take any arguments/, "`list <ARG>` gives warning" );
     like( $trap->stdout, qr/given domain/, "`list <ARG>` does help" );
     is( $trap->exit, 1, "`list <ARG>` exits unclean" );
+
+    local $ENV{"scripts::ea_tomcat85::bail_die"} = 1;
+    trap { scripts::ea_tomcat85::run( "list", "derp" ) };
+    like( $trap->die, qr/“list” does not take any arguments/, "ENV scripts::ea_tomcat85::bail_die make bail out a die instead of exit" );
 };
 
 subtest "[subcmd] valid domain - happy path" => sub {
-    plan tests => 25;
+    plan tests => 50;
 
     my $dir = File::Temp->newdir();
 
     # since server.xml and this script are installed by the same RPM this should be good
-    Cpanel::FileUtils::Copy::safecopy( $scripts::ea_tomcat85::serverxml_path, "$dir/server.xml" )
-      or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_path missing?)\n");    # safecopy() already spews warnings and errors
+    Cpanel::FileUtils::Copy::safecopy( "$scripts::ea_tomcat85::serverxml_dir/server.xml", $dir )
+      or BAIL_OUT("Could not setup server.xml ($scripts::ea_tomcat85::serverxml_dir/server.xml missing?)\n");    # safecopy() already spews warnings and errors
     no warnings 'once';
-    local $scripts::ea_tomcat85::serverxml_path = "$dir/server.xml";
+    local $scripts::ea_tomcat85::serverxml_dir = $dir;
+    local $scripts::ea_tomcat85::work_dir      = "$dir/work";
+    mkdir $scripts::ea_tomcat85::work_dir;
+    local $scripts::ea_tomcat85::conf_dir = "$dir/conf";
+    mkdir $scripts::ea_tomcat85::conf_dir;
     use warnings 'once';
 
     my $finalized = 0;
@@ -155,6 +167,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
     for my $type ( "main", sort grep { $_ ne "main" } keys %dom_tests ) {
         my $dname = $dom_tests{$type};
 
+        mkdir "$scripts::ea_tomcat85::work_dir/$dname";
+        mkdir "$scripts::ea_tomcat85::conf_dir/$dname";
         my @tc_doms = _get_list();
         cmp_deeply( \@tc_doms, superbagof("localhost"), "pre $type sanity check: localhost is configured (list)" );
 
@@ -181,6 +195,8 @@ subtest "[subcmd] valid domain - happy path" => sub {
         trap { scripts::ea_tomcat85::run( "rem", $dname ) };
         is( $trap->exit, undef, "`rem <$type domain>` exits clean" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`rem <$type domain>` removes tomcat85 support" );
+        ok( !-d "$scripts::ea_tomcat85::work_dir/$dname", "`rem <$type domain>` cleans up work dir" );
+        ok( !-d "$scripts::ea_tomcat85::conf_dir/$dname", "`rem <$type domain>` cleans up conf dir" );
 
         @tc_doms = _get_list();
         cmp_deeply( \@tc_doms, superbagof("localhost"), "`rem <$type domain>` does not list domain, localhost is listed (list)" );
@@ -206,7 +222,85 @@ subtest "[subcmd] valid domain - happy path" => sub {
 
         is( $trap->exit, undef, "`remove <$type domain>` exits clean like rem" );
         ok( !scripts::ea_tomcat85::_domain_has_tomcat85( $uname, $dname ), "`remove <$type domain>` - removes tomcat85 support" );
+
+        # custom files
+        Cpanel::FileUtils::Write::overwrite( "$scripts::ea_tomcat85::serverxml_dir/ea-tomcat85.local.host_node.xml.tt", qq{<Host name="[% domain %]" appBase="[% docroot %]"><Alias>$$ $0</Alias></Host>} );
+        Cpanel::FileUtils::Write::overwrite( "$scripts::ea_tomcat85::serverxml_dir/ea-tomcat85.local.httpd_include",    "# $$ $0" );
+        trap { scripts::ea_tomcat85::run( "add", $dname, "--no-flush" ) };
+        like(
+            path("$scripts::ea_tomcat85::serverxml_dir/server.xml")->slurp(),
+            qr{<Alias>$$ \Q$0\E</Alias>},
+            "ea-tomcat85.local.host_node.xml.tt is used when it exists"
+        );
+        for my $type (qw(std ssl)) {
+            like(
+                path("$dir/$type/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf")->slurp(),
+                qr/# $$ \Q$0\E/,
+                "ea-tomcat85.local.httpd_include is used when it exists"
+            );
+        }
+
+        # status w/ --verbose
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: enabled/,                   "status <$type domain> --verbose - (when enabled) shows overall status" );
+        like( $trap->stdout, qr{✔︎.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled) shows SSL inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled) shows STD inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},          "status <$type domain> --verbose - (when enabled) shows server.xml  status (✔︎)" );
+
+        unlink "$dir/ssl/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf";
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,                  "status <$type domain> --verbose - (when enabled, no ssl) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E},    "status <$type domain> --verbose - (when enabled, no ssl) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✔︎.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no ssl) shows STD inc status (✔︎)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},          "status <$type domain> --verbose - (when enabled, no ssl) shows server.xml  status (✔︎)" );
+
+        unlink "$dir/std/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf";
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,               "status <$type domain> --verbose - (when enabled, no std) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no std) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when enabled, no std) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✔︎.*server\.xml Host node},       "status <$type domain> --verbose - (when enabled, no std) shows server.xml  status (✔︎)" );
+
+        trap { scripts::ea_tomcat85::run( "remove", $dname, "--no-flush" ) };
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,               "status <$type domain> --verbose - (when disabled) shows overall status" );
+        like( $trap->stdout, qr{✗.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled) shows SSL inc status (✗)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✗.*server\.xml Host node},          "status <$type domain> --verbose - (when disabled) shows server.xml  status (✗)" );
+
+        path("$dir/ssl/2_4/$uname/$dname/ea-tomcat85-via-ajp.conf")->spew("oh hai");
+        trap { scripts::ea_tomcat85::run( "status", $dname, "--verbose" ) };
+        like( $trap->stdout, qr/^\Q$dname\E: disabled/,                  "status <$type domain> --verbose - (when disabled, straggling inc) shows overall status" );
+        like( $trap->stdout, qr{✔︎.*/ssl/2_4/\Q$uname\E/\Q$dname\E}, "status <$type domain> --verbose - (when disabled, straggling inc) shows SSL inc status (✔︎)" );
+        like( $trap->stdout, qr{✗.*/std/2_4/\Q$uname\E/\Q$dname\E},    "status <$type domain> --verbose - (when disabled, straggling inc) shows STD inc status (✗)" );
+        like( $trap->stdout, qr{✗.*server\.xml Host node},             "status <$type domain> --verbose - (when disabled, straggling inc) shows server.xml  status (✗)" );
     }
+};
+
+subtest "refresh" => sub {
+    plan tests => 6;
+
+    my $dname = "foo$$.test";
+    my @rem;
+    my @add;
+    no warnings "redefine", "once";
+    local *scripts::ea_tomcat85::add = sub {
+        shift;
+        @add = @_;
+        ok( @rem, "rem() called before add()" );
+    };
+    local *scripts::ea_tomcat85::rem = sub { shift; @rem = @_ };
+    use warnings "redefine", "once";
+
+    trap { scripts::ea_tomcat85::run( "refresh", $dname ) };
+    is_deeply( \@rem, [ $dname, "--no-flush" ], "refresh <domain>: rem() called w/ expected args (including no-flush option)" );
+    is_deeply( \@add, [$dname], "refresh <domain>: add() called w/ expected args (including NO no-flush option)" );
+
+    @rem = ();
+    @add = ();
+    trap { scripts::ea_tomcat85::run( "refresh", $dname, "--no-flush" ) };
+    is_deeply( \@rem, [ $dname, "--no-flush", "--no-flush" ], "refresh <domain> --no-flush: rem() called w/ expected args (including given no-flush option)" );
+    is_deeply( \@add, [ $dname, "--no-flush" ], "refresh <domain> --no-flush: add() called w/ expected args including given no-flush option" );
 };
 
 subtest "flush" => sub {
@@ -221,11 +315,62 @@ subtest "flush" => sub {
     is( $finalized, 1, "flush sub command calls _finalize()" );
 };
 
-# TODO: sad path edge case tests (like handling partially enabled domains)
+subtest "test" => sub {
+    plan tests => 10;
+
+    my $dir = File::Temp->newdir();
+    my $res_hr = { success => 1, content => "oh hai", status => 200 };
+
+    no warnings "redefine", "once";
+    local *scripts::ea_tomcat85::_process_args = sub {
+        my ( $app, $domain, @args ) = @_;
+        my $opts = {};
+        $opts->{verbose} = 1 if grep { $_ eq "--verbose" } @args;
+        return ( $app, "meuser", $domain, $opts );
+    };
+    local *Cpanel::AccessIds::do_as_user          = sub { return $dir };
+    local *Cpanel::HTTP::Tiny::FastSSLVerify::get = sub { return $res_hr };
+    use warnings "redefine", "once";
+
+    # no error: rendered
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: ✔︎ \.jsp is processed/, "test <domain> w/ no HTTP error and no JSP tags reports success" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # --verbose
+    trap { scripts::ea_tomcat85::run( "test", "foo.com", "--verbose" ) };
+    like( $trap->stdout, qr/Testing via this JSP source code:/,  "test <domain> --verbose outputs JSP source - 1" );
+    like( $trap->stdout, qr/<%=/m,                               "test <domain> --verbose outputs JSP source - 2" );
+    like( $trap->stdout, qr/JSP Response HTML \(200\):\noh hai/, "test <domain> --verbose outputs HTML result" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # no error: not rendered
+    $res_hr->{content} = "<%= hi %>";
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: ✗ \.jsp is not processed/, "test <domain> w/ no HTTP error and JSP tags reports failure" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+
+    # error
+    $res_hr->{success} = "";
+    trap { scripts::ea_tomcat85::run( "test", "foo.com" ) };
+    like( $trap->stdout, qr/foo\.com: HTTP request failed/, "test <domain> w/ HTTP error indicates its failure" );
+    is( _dir_cnt($dir), 0, "^^^ cleans up the JSP file" );
+};
+
+# ¿ TODO/YAGNI: sad path edge case tests
 
 ###############
 #### helpers ##
 ###############
+
+sub _dir_cnt {
+    my ($dir) = @_;
+    opendir my $dh, $dir or die "Could not opendir “$dir”: $!\n";
+    my @contents = grep { $_ ne "." && $_ ne ".." } readdir($dh);
+    closedir $dh;
+
+    return scalar(@contents);
+}
 
 sub _get_list {
     trap { scripts::ea_tomcat85::run("list") };
