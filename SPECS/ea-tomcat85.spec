@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.24
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 7
+%define release_prefix 8
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -138,6 +138,7 @@ cp %{SOURCE6} $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea
 %post
 
 /usr/local/cpanel/scripts/restartsrv_ea_tomcat85
+/usr/local/cpanel/whostmgr/docroot/themes/x/rebuildtmpl
 
 %preun
 
@@ -156,6 +157,10 @@ fi
 # if at some point later it does not we might need something close to the below
 # current this exits with status 2 and causes a warning so taking out
 # /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
+
+%postun
+
+/usr/local/cpanel/whostmgr/docroot/themes/x/rebuildtmpl
 
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
@@ -176,6 +181,9 @@ fi
 %endif
 
 %changelog
+* Wed Jun 20 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-8
+- ZC-3871: Rebuild WHM menu caches so the EA4 tomcat icon will show/hide correctly
+
 * Tue Jun 19 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-7
 - EA-7489: General UX Improvements
     RPM:
