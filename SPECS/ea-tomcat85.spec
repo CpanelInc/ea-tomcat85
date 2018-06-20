@@ -181,7 +181,7 @@ fi
     RPM:
 
     - add Requires for mysql-connector-java
-    - add Requires for jakarta-commons-daemon and jakarta-commons-daemon-jscv
+    - add Requires for jakarta-commons-daemon and jakarta-commons-daemon-jsvc
 
     cpanel script:
 
