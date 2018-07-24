@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 1
+%define release_prefix 2
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -181,6 +181,9 @@ fi
 %endif
 
 %changelog
+* Tue Jul 24 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-2
+- ZC-4024: encode values in node in case the code in question is ever used elsewhere
+
 * Tue Jul 24 2018 Cory McIntire <cory@cpanel.net> - 8.5.32-1
 - EA-7691: Update to 8.5.32 to handle CVEs
   CVE-2018-1304 Security constraints mapped to context root are ignored
