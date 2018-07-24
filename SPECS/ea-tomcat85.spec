@@ -22,14 +22,14 @@
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
-Version: 8.5.24
+Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 8
+%define release_prefix 1
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
 URL: http://tomcat.apache.org/
-Source0: http://www-eu.apache.org/dist/tomcat/tomcat-8/v8.5.24/bin/apache-tomcat-8.5.24.tar.gz
+Source0: http://mirror.olnevhost.net/pub/apache/tomcat/tomcat-8/v8.5.32/bin/apache-tomcat-8.5.32.tar.gz
 Source1: setenv.sh
 Source2: ea-tomcat85.logrotate
 Source3: ea-tomcat85.service
@@ -181,6 +181,15 @@ fi
 %endif
 
 %changelog
+* Tue Jul 24 2018 Cory McIntire <cory@cpanel.net> - 8.5.32-1
+- EA-7691: Update to 8.5.32 to handle CVEs
+  CVE-2018-1304 Security constraints mapped to context root are ignored
+  CVE-2018-1305 Security constraint annotations applied too late
+  CVE-2018-1336 A bug in the UTF-8 decoder can lead to DoS
+  CVE-2018-8014 CORS filter has insecure defaults
+  CVE-2018-8034 host name verification missing in WebSocket client
+  CVE-2018-8037 Due to a mishandling of close in NIO/NIO2 connectors user sessions can get mixed up
+
 * Wed Jun 20 2018 Daniel Muey <dan@cpanel.net> - 8.5.24-8
 - ZC-3871: Rebuild WHM menu caches so the EA4 tomcat icon will show/hide correctly
 
