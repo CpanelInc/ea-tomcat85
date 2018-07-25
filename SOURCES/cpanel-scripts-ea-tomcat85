@@ -19,6 +19,7 @@ use Cpanel::AcctUtils::DomainOwner::Tiny ();
 use Cpanel::ConfigFiles::Apache 'apache_paths_facade';    # see POD for import specifics
 use Cpanel::SafeDir::RM               ();
 use Cpanel::HTTP::Tiny::FastSSLVerify ();
+use Cpanel::Encoder::XML              ();
 
 use XML::LibXML ();
 use App::CmdDispatch;
@@ -371,6 +372,13 @@ sub _get_new_host_element {
     my ( $user, $domain ) = @_;
 
     my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
+
+    # This is essentially a noop since we don’t get here if the given $user isn’t an
+    #     actual user and the $domain and $docroot come from the system based on the user
+    # … but just in case someone botches it up later it can’t hurt ¯\_(ツ)_/¯
+    $user    = Cpanel::Encoder::XML::xmlencode($user);
+    $domain  = Cpanel::Encoder::XML::xmlencode($domain);
+    $docroot = Cpanel::Encoder::XML::xmlencode($docroot);
 
     my $xml = qq{
 <Host name="$domain" appBase="$docroot">
