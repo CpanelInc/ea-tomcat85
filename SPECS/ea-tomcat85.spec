@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 2
+%define release_prefix 3
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -170,6 +170,21 @@ fi
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %config(noreplace) %attr(0600,root,root) /opt/cpanel/ea-tomcat85/conf/server.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/context.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/web.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.policy
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.properties
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/logging.properties
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
+%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
+
 %dir /var/log/ea-tomcat85
 %ghost %attr(0644,tomcat,nobody) /var/run/catalina.pid
 /etc/logrotate.d/ea-tomcat85
@@ -181,6 +196,9 @@ fi
 %endif
 
 %changelog
+* Thu Jul 26 2018 Cory McIntire <cory@cpanel.net> - 8.5.32-3
+- EA-7750: ea-tomcat85 should leave all conf files in place on upgrade
+
 * Tue Jul 24 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-2
 - ZC-4024: encode values in node in case the code in question is ever used elsewhere
 
