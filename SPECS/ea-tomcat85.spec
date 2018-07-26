@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 3
+%define release_prefix 4
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -125,6 +125,8 @@ mkdir -p $RPM_BUILD_ROOT%{_initddir}
 cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/ea_tomcat85
 %endif
 
+mkdir -p $RPM_BUILD_ROOT/var/run/ea-tomcat85
+
 mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/scripts
 cp %{SOURCE5} $RPM_BUILD_ROOT/usr/local/cpanel/scripts/ea-tomcat85
 ln -s restartsrv_base $RPM_BUILD_ROOT/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
@@ -186,7 +188,8 @@ fi
 %config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
 
 %dir /var/log/ea-tomcat85
-%ghost %attr(0644,tomcat,nobody) /var/run/catalina.pid
+%dir %attr(0770,root,tomcat) /var/run/ea-tomcat85
+%ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 /etc/logrotate.d/ea-tomcat85
 %if %{with_systemd}
 # Must be root root here for write permissions
@@ -196,6 +199,9 @@ fi
 %endif
 
 %changelog
+* Thu Jul 26 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-4
+- ZC-4026: Run tomcat as the user tomcat
+
 * Thu Jul 26 2018 Cory McIntire <cory@cpanel.net> - 8.5.32-3
 - EA-7750: ea-tomcat85 should leave all conf files in place on upgrade
 
