@@ -171,21 +171,21 @@ fi
 %defattr(-,tomcat,nobody,-)
 /opt/cpanel/ea-tomcat85
 %config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
-%config(noreplace) %attr(0600,root,root) /opt/cpanel/ea-tomcat85/conf/server.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/context.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/web.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.policy
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.properties
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/logging.properties
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
-%config(noreplace) %attr(0644,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/server.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/context.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/web.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.policy
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.properties
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/logging.properties
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
+%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
 
 %dir /var/log/ea-tomcat85
 %dir %attr(0770,root,tomcat) /var/run/ea-tomcat85
