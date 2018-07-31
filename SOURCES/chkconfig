@@ -46,7 +46,7 @@ case $1 in
 
                 else
                 # start tomcat, not running
-                    $file &>/dev/null
+                    su -s $file tomcat &>/dev/null
                     echo -e "\e[00;33mGiving Tomcat time to start up ......\e[00m"
                     sleep 1 # just to make sure
                     pid=$(tomcat_pid)
@@ -72,7 +72,7 @@ case $1 in
                 echo -e "\e[00;31mMissing $file\e[00m"
                 ERROR=1
             else
-            $file
+            su -s $file tomcat
             echo -e "\e[00;32mTomcat has shutdown.\e[00m"
             ERROR=0
             fi
@@ -84,7 +84,7 @@ case $1 in
             echo "Missing $file"
             ERROR=1
         else
-            $file
+            $file # must be run as root, it is ok though because it comes back in here for start/stop
         fi
         ;;
     status|fullstatus)
