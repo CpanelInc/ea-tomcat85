@@ -8,8 +8,11 @@ Type=forking
 
 Environment=CATALINA_HOME=/opt/cpanel/ea-tomcat85
 Environment=CATALINA_BASE=/opt/cpanel/ea-tomcat85
+Environment=CATALINA_PID=/var/run/ea-tomcat85/catalina.pid
 
-PIDFile=/var/run/catalina.pid
+User=tomcat
+Group=tomcat
+
 ExecStart=/opt/cpanel/ea-tomcat85/bin/startup.sh
 ExecStop=/opt/cpanel/ea-tomcat85/bin/shutdown.sh
 

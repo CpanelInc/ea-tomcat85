@@ -15,7 +15,7 @@ use Cpanel::ServiceManager::Base ();
 extends 'Cpanel::ServiceManager::Base';
 
 has is_cpanel_service => ( default => 0 );
-has pidfile           => ( default => '/var/run/catalina.pid' );
+has pidfile           => ( default => '/var/run/ea-tomcat85/catalina.pid' );
 has ports             => ( default => sub { return [8080] } );
 
 no Cpanel::Class;     #issafe #nomunge
