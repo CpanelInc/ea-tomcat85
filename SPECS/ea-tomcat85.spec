@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 4
+%define release_prefix 5
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -82,20 +82,19 @@ to be a collaboration of the best-of-breed developers from around the world.
 %setup -qn apache-tomcat-%{version}
 
 %pre
-# if the user already exists, just add to nobody group
-if [ `/usr/bin/getent passwd tomcat` ];
-    then usermod -G nobody tomcat;
-# if the user didn't exist lets check the group to give useradd the right flags
-# in case there is a tomcat group leftover from who knows what...
-elif [ `/usr/bin/getent group tomcat` ];
-then /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -g tomcat -G nobody tomcat
-else
-# otherwise lets just create the user like normal
-/usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -G nobody tomcat
+
+# add the group if we need it:
+if [ ! `/usr/bin/getent group tomcat` ];
+   then /usr/sbin/groupadd -r tomcat;
 fi
 
-# Just ensuring in some rare case group tomcat wasnt created we check here
-/usr/bin/getent group tomcat || /usr/sbin/groupadd -r tomcat
+# if the user already exists, just add to group
+if [ `/usr/bin/getent passwd tomcat` ];
+    then usermod -g tomcat tomcat;
+else
+# otherwise lets just create the user like normal
+    /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -g tomcat tomcat
+fi
 
 %build
 # empty build section
@@ -168,24 +167,24 @@ fi
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
 /usr/local/cpanel/scripts/restartsrv_ea_tomcat85
 /usr/local/cpanel/Cpanel/ServiceManager/Services/Ea_tomcat85.pm
-%defattr(-,tomcat,nobody,-)
+%defattr(-,tomcat,tomcat,-)
 /opt/cpanel/ea-tomcat85
-%config(noreplace) %attr(0755,tomcat,nobody) /opt/cpanel/ea-tomcat85/bin/setenv.sh
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/server.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/context.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/web.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.policy
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/catalina.properties
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/conf/logging.properties
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
-%config(noreplace) %attr(0640,tomcat,nobody) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
+%config(noreplace) %attr(0755,tomcat,tomcat) /opt/cpanel/ea-tomcat85/bin/setenv.sh
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/server.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/context.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/web.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.policy
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.properties
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/logging.properties
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
+%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
 
 %dir /var/log/ea-tomcat85
 %dir %attr(0770,root,tomcat) /var/run/ea-tomcat85
@@ -195,10 +194,13 @@ fi
 # Must be root root here for write permissions
 %config(noreplace) %attr(0644,root,root) %{_unitdir}/ea_tomcat85.service
 %else
-%attr(0755,tomcat,nobody) %{_initddir}/ea_tomcat85
+%attr(0755,tomcat,tomcat) %{_initddir}/ea_tomcat85
 %endif
 
 %changelog
+* Thu Aug 02 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-5
+- ZC-4088: remove tomcat from nobody group
+
 * Thu Jul 26 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-4
 - ZC-4026: Run tomcat as the user tomcat
 
