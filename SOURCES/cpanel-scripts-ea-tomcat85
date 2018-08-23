@@ -9,86 +9,41 @@ use warnings;
 
 package scripts::ea_tomcat85;
 
-use Cpanel::WebVhosts                    ();
-use Cpanel::AccessIds                    ();
-use Cpanel::FileUtils::Write             ();
-use Cpanel::SafeDir::MK                  ();
-use Cpanel::Sys::OS                      ();
-use Cpanel::Config::LoadUserDomains      ();
-use Cpanel::AcctUtils::DomainOwner::Tiny ();
-use Cpanel::ConfigFiles::Apache 'apache_paths_facade';    # see POD for import specifics
-use Cpanel::SafeDir::RM               ();
-use Cpanel::HTTP::Tiny::FastSSLVerify ();
-use Cpanel::Encoder::XML              ();
+use Cpanel::Config::LoadUserDomains ();
+use Cpanel::AccessIds               ();
+use Cpanel::JSON                    ();
 
+use File::Path::Tiny ();    # Path::Tiny’s version is overly complicated
+use Path::Tiny;
+use Capture::Tiny 'capture';
 use XML::LibXML ();
 use App::CmdDispatch;
 
-our $conf_name     = "ea-tomcat85-via-ajp.conf";
-our $serverxml_dir = "/opt/cpanel/ea-tomcat85/conf";
-our $work_dir      = "/opt/cpanel/ea-tomcat85/work/Catalina";
-our $conf_dir      = "/opt/cpanel/ea-tomcat85/conf/Catalina";
-
-my $no_flush = "If you pass --no-flush you will need to `$0 flush` in order for any changes to take effect.";
-my $cmds     = {
-    refresh => {
-        code     => \&refresh,
-        clue     => "refresh <domain> [--no-flush]",
-        abstract => 'refresh tomcat configuration',
-        help     => "Ensure the given domain’s has the latest and complete tomcat configuration\n\t$no_flush",
-    },
-    test => {
-        code     => \&test,
-        clue     => 'test <domain> [--verbose]',
-        abstract => 'test .jsp support',
-        help     => "Test .jsp support for the given domain\n\tIf you pass --verbose it will output the JSP source and the HTML response as well as the status message",
-    },
+my $cmds = {
     add => {
         code     => \&add,
-        clue     => 'add <domain> [--no-flush]',
+        clue     => 'add <user>',
         abstract => 'add tomcat 8.5 support',
-        help     => "Add tomcat 8.5 support to the given domain.\n\t$no_flush",
+        help     => "add tomcat 8.5 instance to the given user.",
     },
     rem => {
         code     => \&rem,
-        clue     => 'rem <domain> [--no-flush]',
+        clue     => 'rem <user>',
         abstract => 'remove tomcat 8.5 support',
-        help     => "Remove tomcat 8.5 support to the given domain.\n\t$no_flush",
-    },
-    status => {
-        code => sub {
-            my ( $app, $user, $domain, $opts ) = _process_args(@_);
-            print "$domain: " . ( _domain_has_tomcat85( $user, $domain ) ? "enabled" : "disabled" ) . "\n";
-            if ( $opts->{verbose} ) {
-                my $ssl_inc = _get_ssl_conf_path( $user, $domain );
-                my $std_inc = _get_nonssl_conf_path( $user, $domain );
-                my $host_node = _get_host_nodes_for( $user, $domain );
-                print "\t", ( -f $std_inc ? "✔︎" : "✗" ), " – $std_inc\n";
-                print "\t", ( -f $ssl_inc ? "✔︎" : "✗" ), " – $ssl_inc\n";
-                print "\t", ( $host_node  ? "✔︎" : "✗" ), " – $serverxml_dir/server.xml Host node\n";
-            }
-        },
-        clue     => 'status <domain> [--verbose]',
-        abstract => 'check for tomcat 8.5 support',
-        help     => "Check for tomcat 8.5 support for the given domain.\n\tIf you pass verbose it will output more diagnostic information."
+        help     => "Remove tomcat 8.5 instance from the given user.\n\tSince this is destructive you must also verify you want to continue. Passing --verify=<user> will make it work. If you don’t pass it an explanatory message is given with instructions.",
+
     },
     list => {
         code => sub {
             _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
-            my $dom = _get_serverxml_dom();
-            for my $hostnode ( $dom->findnodes("//Server/Service/Engine/Host") ) {
-                print $hostnode->getAttribute("name") . "\n";
+            my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
+            for my $user ( keys %cpusers ) {
+                print "$user\n" if -d _get_homedir($user) . "/ea-tomcat85";
             }
         },
         clue     => 'list',
-        abstract => 'list domains tomcat 8.5 support',
-        help     => 'List domains, one per line, configured in server.xml for tomcat 8.5 support',
-    },
-    flush => {
-        code     => sub { _finalize() },
-        clue     => 'flush',
-        abstract => 'rebuild conf and restart tomcat 8.5 and apache',
-        help     => 'Rebuild apache config file to get correct includes, then restart tomcat 8.5 and apache',
+        abstract => 'list users with tomcat 8.5 instance',
+        help     => 'List users, one per line, that have a tomcat 8.5 instance.',
     },
 };
 
@@ -104,6 +59,8 @@ run(@ARGV) if !caller;
 
 sub run {
     my (@argv) = @_;
+    die "This script should only be called as root\n" if $> != 0;
+
     local $ENV{TERM} = $ENV{TERM} || "xterm-256color";    # non-CLI modulino avoid needless: Cannot find termcap: TERM not set at …/Term/ReadLine.pm line 373.
     App::CmdDispatch->new( $cmds, $opts )->run(@argv);
 }
@@ -113,108 +70,89 @@ sub run {
 ################
 
 sub add {
-    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
+    my ( $app, $user, $homedir ) = _process_args(@_);
 
-    _bail( $app, "The domain already has tomcat 8.5 support." ) if _domain_has_tomcat85( $user, $domain );
+    _bail( $app, "The user already has a tomcat 8.5 instance." ) if -d "$homedir/ea-tomcat85";
 
-    print "Adding tomcat 8.5 support to $user’s domain $domain …\n";
+    print "Adding $user’s tomcat 8.5 instance …\n";
 
-    # Add to server.xml
-    my $dom              = _get_serverxml_dom();
-    my $new_host_element = _get_new_host_element( $user, $domain );
-    my ($engine)         = $dom->findnodes(qq{//Server/Service/Engine[\@name="Catalina"]});    # ¿ and defaultHost="localhost" ?
+    my ( $http_port, $ajp_port, $redirect_port ) = _get_ports($user);
 
-    $engine->appendChild($new_host_element);
-    _write_serverxml($dom);
+    Cpanel::AccessIds::do_as_user(
+        $user,
+        sub {
+            local $ENV{HOME} = $homedir;
 
-    # create Apache includes
-    _write_conf( _get_ssl_conf_path( $user, $domain ) );
-    _write_conf( _get_nonssl_conf_path( $user, $domain ) );
+            mkdir "$homedir/ea-tomcat85" or die "Could not create directory “$homedir/ea-tomcat85”: $!\n";
+            chdir "$homedir/ea-tomcat85" or die "Could not change into “$homedir/ea-tomcat85”: $!\n";
 
-    die "Failed to add tomcat 8.5 support to $user’s domain $domain\n" if !_domain_has_tomcat85( $user, $domain );
+            for my $dir (qw(conf bin logs run temp webapps/ROOT work/Catalina/localhost/ROOT)) {
+                File::Path::Tiny::mk($dir) or die "Could not create directory “$dir”: $!\n";
+            }
 
-    _flush( $opts_hr->{no_flush} );
+            my %symlinks = (
+                '/opt/cpanel/ea-tomcat85/README.USER-SERVICE-MANAGEMENT' => 'README.USER-SERVICE-MANAGEMENT',
+                '/opt/cpanel/ea-tomcat85/README.FASTERSTARTUP'           => 'README.FASTERSTARTUP',
+                '/opt/cpanel/ea-tomcat85/README.SECURITY'                => 'README.SECURITY',
+                '/opt/cpanel/ea-tomcat85/README.APACHE-PROXY'            => 'README.APACHE-PROXY',
+                '/opt/cpanel/ea-tomcat85/README.USER-INSTANCE'           => 'README.USER-INSTANCE',
+            );
+            for my $target ( keys %symlinks ) {
+                symlink( $target, $symlinks{$target} ) or die "Could not symlink “$symlinks{$target}” to “$target”: $!\n";
+            }
+
+            path("bin/setenv.sh")->spew(<DATA>);
+
+            system("cp -r /opt/cpanel/ea-tomcat85/user-conf/* conf/");
+            system("chmod 640 conf/*");
+
+            my $dom = XML::LibXML->load_xml( location => "conf/server.xml" );
+            $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );
+            for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {
+                if ( $conn->getAttribute('protocol') eq 'HTTP/1.1' ) {
+                    $conn->setAttribute( port         => $http_port );
+                    $conn->setAttribute( redirectPort => $redirect_port );
+                }
+                elsif ( $conn->getAttribute('protocol') eq 'AJP/1.3' ) {
+                    $conn->setAttribute( port         => $ajp_port );
+                    $conn->setAttribute( redirectPort => $redirect_port );
+                }
+            }
+            _write_dom( "conf/server.xml" => $dom );
+
+            _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
+
+            _ubic_tc("start");
+        }
+    );
+
     print " … done!\n";
 
     return;
 }
 
 sub rem {
-    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
+    my ( $app, $user, $homedir ) = _process_args(@_);
 
-    _bail( $app, "The domain does not have tomcat 8.5 support." ) if !_domain_has_tomcat85( $user, $domain, 1 );
+    _bail( $app, "The user does not have a tomcat 8.5 instance." ) if !-d "$homedir/ea-tomcat85";
 
-    print "Removing tomcat 8.5 support from $user’s domain $domain …\n";
+    print "Removing $user’s tomcat 8.5 instance …\n";
 
-    # Remove from server.xml
-    my $dom = _get_serverxml_dom();
-    for my $host_node ( _get_host_nodes_for( $user, $domain ) ) {
-        $host_node->parentNode->removeChild($host_node);
+    if ( !grep m/^--verify=\Q$user\E$/, @_ ) {
+        die "This operation can not be undone, please pass the --verify=<USER> to indicate you’ve backed up anything in $homedir/ea-tomcat85/ that you want to keep!\n";
     }
-    _write_serverxml($dom);
 
-    # cleanup work and conf dirs
-    for my $dir ( $work_dir, $conf_dir ) {
-        if ( -d "$dir/$domain" ) {
-            Cpanel::SafeDir::RM::safermdir("$dir/$domain") or warn "Could not remove “$dir/$domain”: $!\n";
+    Cpanel::AccessIds::do_as_user(
+        $user,
+        sub {
+            local $ENV{HOME} = $homedir;
+            _ubic_tc("stop");
+            _sysdie( "remove service management" => qw(/usr/local/cpanel/scripts/cpuser_service_manager rem ea-tomcat85) );
+            File::Path::Tiny::rm("$homedir/ea-tomcat85") or die "Could not remove directory “$homedir/ea-tomcat85”: $!\n";
         }
-    }
+    );
 
-    # remove Apache includes
-    unlink _get_ssl_conf_path( $user, $domain );
-    unlink _get_nonssl_conf_path( $user, $domain );
-
-    die "Failed to remove tomcat 8.5 support from $user’s domain $domain\n" if _domain_has_tomcat85( $user, $domain, 1 );
-
-    _flush( $opts_hr->{no_flush} );
     print " … done!\n";
-
-    return;
-}
-
-sub test {
-    my ( $app, $user, $domain, $opts_hr ) = _process_args(@_);
-
-    my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
-    my $jsp = "cpanel_ea4_jsp_ea-tomcat85-$$.jsp";
-
-    my $jsp_cont = _get_jsp_cont();
-
-    if ( $opts_hr->{verbose} ) {
-        print "Testing via this JSP source code:\n$jsp_cont\n----\n";
-    }
-
-    # create $docroot/$jsp
-    Cpanel::FileUtils::Write::overwrite( "$docroot/$jsp", $jsp_cont, 0644 );
-
-    # hit $domain/$jsp
-    my $res = Cpanel::HTTP::Tiny::FastSSLVerify->new()->get("http://$domain/$jsp");
-    if ( $opts_hr->{verbose} ) {
-        print "JSP Response HTML ($res->{status}):\n$res->{content}\n----\n";
-    }
-    if ( $res->{success} ) {
-        if ( $res->{content} =~ m/<%=/ ) {
-            print "$domain: ✗ .jsp is not processed\n";
-        }
-        else {
-            print "$domain: ✔︎ .jsp is processed\n";
-        }
-    }
-    else {
-        print "$domain: HTTP request failed\n";
-    }
-
-    # remove $docroot/$jsp
-    unlink "$docroot/$jsp";
-
-    return;
-}
-
-sub refresh {
-    my ( $app, $domain, @args ) = @_;
-
-    rem( $app, $domain, @args, "--no-flush" );
-    add( $app, $domain, @args );
 
     return;
 }
@@ -223,48 +161,25 @@ sub refresh {
 #### helpers ##
 ###############
 
-sub _get_jsp_cont {
-    return <<"END_JSP";
-<html>
-   <head>
-      <title>Test JSP Page</title>
-      <style type="text/css">
-         dt {
-             float: left;
-             width: 30%;
-             text-align: right;
-             padding: .25em;
-             clear: left;
-             font-weight: bold;
-         }
-         dd {
-             float: left;
-             width: 60%;
-             padding: .25em 0;
-         }
-         dl:after {content:"";display:table;clear:both;} // will not work when there are mutli-dt per dd or multi-dd per dt
-      </style>
-   </head>
-   <body>
-      <h1>Test JSP Page</h1>
-      <p>This is a page to verify that .jsp support has been enabled</p>
-      <dl>
-         <dt>Date</dt><dd><%= new java.util.Date() %></dd>
-         <dt>Remote Address</dt><dd><%= request.getRemoteAddr() %></dd>
-         <dt>Request Method</dt><dd><%= request.getMethod() %></dd>
-         <dt>Servlet Path</dt><dd><%= request.getServletPath() %></dd>
-         <dt>Tomcat Version</dt><dd><%= application.getServerInfo() %></dd>
-         <dt>Servlet Specification Version</dt><dd><%= application.getMajorVersion() %>.<%= application.getMinorVersion() %></dd>
-         <dt>JSP Version</dt><dd><%= JspFactory.getDefaultFactory().getEngineInfo().getSpecificationVersion() %></dd>
-         <dt>JAVA_HOME</dt><dd><%= System.getenv("JAVA_HOME") %></dd>
-         <dt>CATALINA_HOME</dt><dd><%= System.getenv("CATALINA_HOME") %></dd>
-         <dt>CATALINA_BASE</dt><dd><%= System.getenv("CATALINA_BASE") %></dd>
-         <dt>CATALINA_OPTS</dt><dd><%= System.getenv("CATALINA_OPTS") %></dd>
-      </dl>
-   </body>
-</html>
-END_JSP
+sub _ubic_tc {
+    my ($cmd) = @_;
 
+    # would be cool if Cpanel::FindBin (or whatever) did this for us: CPANEL-22345
+    my $real_perl  = readlink("/usr/local/cpanel/3rdparty/bin/perl");
+    my $cp_bin_dir = $real_perl;
+    $cp_bin_dir =~ s{/perl$}{};
+    local $ENV{PATH} = "$cp_bin_dir:$ENV{PATH}";    # not only does this allow it to find our ubic-admin, it allows its env-shebang to pick up our perl
+
+    system( "ubic", $cmd, "ea-tomcat85" );
+
+    return $? ? 0 : 1;
+}
+
+sub _sysdie {
+    my ( $do_this, @cmd ) = @_;
+    my $cmd_str = join( " ", @cmd );
+    system(@cmd) && die "Failed to $do_this (exit $?)\nThis will need done manually:\n\t`$cmd_str`\n";
+    return;
 }
 
 sub _bail {
@@ -279,161 +194,87 @@ sub _bail {
     exit(1);    # there is no return()ing from this lol
 }
 
-sub _flush {
-    my ($no_flush) = @_;
-
-    if ($no_flush) {
-        print "Not rebuilding conf and restarting per --no-flush\n";
-    }
-    else {
-        _finalize();
-    }
-
-    return;
-}
-
-sub _finalize {
-    system('/usr/local/cpanel/scripts/rebuildhttpdconf')       && die "Could not rebuild httpd.conf (exit $?)\n";
-    system('/usr/local/cpanel/scripts/restartsrv_ea_tomcat85') && die "Could not restart tomcat (exit $?)\n";
-    system('/usr/local/cpanel/scripts/restartsrv_httpd')       && die "Could not restart httpd (exit $?)\n";
-
-    return;
-}
-
 sub _process_args {
-    my ( $app, $domain, @args ) = @_;
+    my ( $app, $user ) = @_;
 
-    _bail( $app, "Domain argument is missing." ) if !$domain;
+    _bail( $app, "User argument is missing." ) if !$user;
+    _bail( $app, "User argument is invalid." ) if !exists { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user};
 
-    my $user = Cpanel::AcctUtils::DomainOwner::Tiny::getdomainowner( $domain, { default => undef } );
-    _bail( $app, "Domain argument is invalid." ) if !$user;
-
-    my %fqdn = map { $_ => 1 } @{ { Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 ) }->{$user} };
-    _bail( $app, "The account “$user” does not own the domain “$domain”." ) if !exists $fqdn{$domain};
-
-    my $opts = { no_flush => 0, verbose => 0 };
-    $opts->{no_flush} = 1 if grep { $_ eq "--no-flush" } @args;
-    $opts->{verbose}  = 1 if grep { $_ eq "--verbose" } @args;
-
-    return ( $app, $user, $domain, $opts );
+    return ( $app, $user, _get_homedir($user) );
 }
 
-sub _get_ssl_conf_path {
-    my ( $user, $domain ) = @_;
-
-    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
-    my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
-
-    return "$dir_conf_userdata/ssl/$apv/$user/$domain/$conf_name";
+sub _get_homedir {
+    my ($user) = @_;
+    return ( getpwnam($user) )[7];
 }
 
-sub _get_nonssl_conf_path {
-    my ( $user, $domain ) = @_;
+sub _get_ports {
+    my ($user) = @_;
+    my ( $http_port, $ajp_port, $redirect_port );
 
-    my ($apv) = scalar(`rpm -qf /etc/cpanel/ea4/paths.conf`) =~ m/^ea-apache(\d)(\d)/ ? "$1_$2" : "2_4";    # future proof for ea-apache25, ea-apache26, etc
-    my $dir_conf_userdata = apache_paths_facade->dir_conf_userdata();
+    _load_modulino("/usr/local/cpanel/scripts/cpuser_port_authority");
 
-    return "$dir_conf_userdata/std/$apv/$user/$domain/$conf_name";
-}
-
-sub _domain_has_tomcat85 {
-    my ( $user, $domain, $any ) = @_;
-
-    if ($any) {
-        return 1 if -f _get_ssl_conf_path( $user, $domain ) || -f _get_nonssl_conf_path( $user, $domain ) || _get_host_nodes_for( $user, $domain );
-    }
-    else {
-        return 1 if -f _get_ssl_conf_path( $user, $domain ) && -f _get_nonssl_conf_path( $user, $domain ) && _get_host_nodes_for( $user, $domain );
+    # see if they have them already so that we don’t keep allocating them
+    if ( -f $scripts::cpuser_port_authority::port_authority_conf ) {
+        my @ports;
+        my $hr = eval { Cpanel::JSON::LoadFile($scripts::cpuser_port_authority::port_authority_conf) } || {};
+        for my $port ( keys %{$hr} ) {
+            next if $hr->{$port}{owner} ne $user || !exists $hr->{$port}{service} || $hr->{$port}{service} ne 'ea-tomcat85';
+            push @ports, $port;
+        }
+        if ( @ports > 2 ) {
+            ( $http_port, $ajp_port, $redirect_port ) = sort @ports;
+        }
     }
 
-    return;
-}
+    if ( !$http_port || !$ajp_port || !$redirect_port ) {
+        my @cmd = ( qw(/usr/local/cpanel/scripts/cpuser_port_authority give), $user, qw(3 --service=ea-tomcat85) );
+        my ( $stdout, $stderr, $exit ) = capture { system(@cmd) };    # we could scripts::cpuser_port_authority::run("give", … but its nice to output the command, and the exit value is nice to detect success/failure
 
-sub _get_host_nodes_for {
-    my ( $user, $domain ) = @_;
-    my $dom = _get_serverxml_dom();
-
-    my @hosts_for_domain = $dom->findnodes(qq{//Server/Service/Engine/Host[\@name="$domain"]});
-
-    warn "More than one <Host> found for $domain\n" if @hosts_for_domain > 1;
-
-    return @hosts_for_domain;
-    return;
-}
-
-my $_dom;
-
-sub _get_serverxml_dom {
-    $_dom ||= XML::LibXML->load_xml( location => "$serverxml_dir/server.xml" );
-    return $_dom;
-}
-
-sub _get_new_host_element {
-    my ( $user, $domain ) = @_;
-
-    my $docroot = Cpanel::AccessIds::do_as_user( $user, sub { Cpanel::WebVhosts::get_docroot_for_domain($domain) } );
-
-    # This is essentially a noop since we don’t get here if the given $domain isn’t a
-    #     cPanel domain and the $user and $docroot come from the system based on the $domain
-    #     (the system does not allow XML characters in any of those 3 items)
-    # … but just in case someone botches it up later it can’t hurt ¯\_(ツ)_/¯
-    $user    = Cpanel::Encoder::XML::xmlencode($user);
-    $domain  = Cpanel::Encoder::XML::xmlencode($domain);
-    $docroot = Cpanel::Encoder::XML::xmlencode($docroot);
-
-    my $xml = qq{
-<Host name="$domain" appBase="$docroot">
-    <Alias>www.$domain</Alias>
-    <Alias>mail.$domain</Alias>
-    <Context path="" reloadable="true" docBase="$docroot" debug="1"/>
-</Host>
-};
-
-    if ( -e "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt" ) {
-        require Cpanel::Template;
-        my $tt = Cpanel::Template->get_tt_obj( { ABSOLUTE => 1 } );
-        $xml = "";
-        $tt->process( "$serverxml_dir/ea-tomcat85.local.host_node.xml.tt", { domain => $domain, docroot => $docroot }, \$xml ) || die $tt->error(), "\n";
+        if ($exit) {
+            my $cmd = join( " ", @cmd );
+            die "Failed to allocate ports!\n`$cmd` exited $exit\n";
+        }
+        else {
+            my @lines = split( /\n/, $stdout );
+            chomp(@lines);
+            ( $http_port, $ajp_port, $redirect_port ) = sort map { m/^[1-9][0-9]+$/ } @lines;
+        }
     }
 
-    return ( XML::LibXML->load_xml( string => $xml )->findnodes("//Host") )[0];
+    if ( !$http_port || !$ajp_port || !$redirect_port ) {
+        die "Failed to get three ports!\n";
+    }
+
+    return ( $http_port, $ajp_port, $redirect_port );
 }
 
-sub _write_serverxml {
-    my ($dom) = @_;
+sub _load_modulino {
+    my ($modulino) = @_;
+    eval { require "$modulino" };
+    die "This feature is not available on this version of cPanel. You need v76 or newer\n" if $@;
+    return 1;
+}
+
+sub _write_dom {
+    my ( $path, $dom ) = @_;
 
     # get nicely indented XML (from http://grantm.github.io/perl-libxml-by-example/dom.html#modifying-the-dom)
     for my $node ( $dom->findnodes('//text()') ) {
         $node->parentNode->removeChild($node) unless $node =~ /\S/;
     }
-    my $xml = $dom->toString(1);
 
-    # reset internal DOM singleton
-    $_dom = undef;
-
-    return Cpanel::FileUtils::Write::overwrite( "$serverxml_dir/server.xml", $xml );
-}
-
-sub _write_conf {
-    my ($file) = @_;
-
-    my $string = q{<IfModule proxy_ajp_module>
-    ProxyPassMatch "^/(.*\.jsp|.*\.do|(?:.*/)?servlets?/.*)$" "ajp://127.0.0.1:8009/$1"
-</IfModule>
-};
-
-    if ( -e "$serverxml_dir/ea-tomcat85.local.httpd_include" ) {
-        open my $fh, "<", "$serverxml_dir/ea-tomcat85.local.httpd_include" or die $!;
-        local $/;
-        $string = <$fh>;
-        close $fh;
-    }
-
-    my $dir = $file;
-    $dir =~ s{/[^/]+$}{};
-    Cpanel::SafeDir::MK::safemkdir($dir) if !-d $dir;
-
-    return Cpanel::FileUtils::Write::overwrite( $file, $string, 0644 );
+    return path($path)->spew( $dom->toString(1) );
 }
 
 1;
+
+__DATA__
+# Your customizations can go here, for example, CATALINA_OPTS
+
+# example from https://wiki.apache.org/tomcat/HowTo/FasterStartUp#Entropy_Source
+# Trade some security for startup speed by using non-blocking entropy:
+# CATALINA_OPTS="$CATALINA_OPTS -Djava.security.egd=file:/dev/./urandom
+
+# DO NOT EDIT THIS LINE OR ANYTHING BELOW THIS LINE
+. /opt/cpanel/ea-tomcat85/bin/user-setenv.sh
