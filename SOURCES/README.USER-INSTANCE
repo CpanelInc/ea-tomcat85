@@ -1,0 +1,3 @@
+Please see https://go.cpanel.net/Tomcat85Private for information on your tomcat 8.5 private instance.
+
+`/opt/cpanel/ea-tomcat85/test.jsp` is a handy JSP test script that you can copy to try out your instance.
