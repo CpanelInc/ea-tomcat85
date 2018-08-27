@@ -17,6 +17,7 @@ use File::Path::Tiny ();    # Path::Tiny’s version is overly complicated
 use Path::Tiny;
 use Capture::Tiny 'capture';
 use XML::LibXML ();
+use Cwd         ();
 use App::CmdDispatch;
 
 my $cmds = {
@@ -37,7 +38,7 @@ my $cmds = {
         code => sub {
             _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
             my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
-            for my $user ( keys %cpusers ) {
+            for my $user ( sort keys %cpusers ) {
                 print "$user\n" if -d _get_homedir($user) . "/ea-tomcat85";
             }
         },
@@ -78,6 +79,7 @@ sub add {
 
     my ( $http_port, $ajp_port, $redirect_port ) = _get_ports($user);
 
+    my $curdir = Cwd::cwd();
     Cpanel::AccessIds::do_as_user(
         $user,
         sub {
@@ -126,6 +128,7 @@ sub add {
         }
     );
 
+    chdir $curdir or warn "Could not chdir back to “$curdir”: $!\n";
     print " … done!\n";
 
     return;
@@ -238,7 +241,7 @@ sub _get_ports {
         else {
             my @lines = split( /\n/, $stdout );
             chomp(@lines);
-            ( $http_port, $ajp_port, $redirect_port ) = sort map { m/^[1-9][0-9]+$/ } @lines;
+            ( $http_port, $ajp_port, $redirect_port ) = sort grep { m/^[1-9][0-9]+$/ } @lines;
         }
     }
 
@@ -266,6 +269,8 @@ sub _write_dom {
 
     return path($path)->spew( $dom->toString(1) );
 }
+
+sub _get_cmd { $cmds }
 
 1;
 
