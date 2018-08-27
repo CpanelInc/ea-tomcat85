@@ -40,7 +40,7 @@
         Process p = Runtime.getRuntime().exec("id");
         OutputStream outs = p.getOutputStream();
         InputStream ins = p.getInputStream();
-        DataInputStream dis = new DataInputStream(ims);
+        DataInputStream dis = new DataInputStream(ins);
         String disrl = dis.readLine();
         while ( disrl != null ) {
                 out.println(disrl); 
