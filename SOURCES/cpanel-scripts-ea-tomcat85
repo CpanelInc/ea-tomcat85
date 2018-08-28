@@ -103,7 +103,9 @@ sub add {
                 symlink( $target, $symlinks{$target} ) or die "Could not symlink “$symlinks{$target}” to “$target”: $!\n";
             }
 
+            my $data_start = tell DATA;
             path("bin/setenv.sh")->spew(<DATA>);
+            seek( DATA, $data_start, 0 );
 
             system("cp -r /opt/cpanel/ea-tomcat85/user-conf/* conf/");
             system("chmod 640 conf/*");
