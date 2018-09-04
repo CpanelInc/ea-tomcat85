@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 6
+%define release_prefix 7
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -94,12 +94,12 @@ to be a collaboration of the best-of-breed developers from around the world.
 %pre
 
 # add the group if we need it:
-if [ ! `/usr/bin/getent group tomcat` ];
-   then /usr/sbin/groupadd -r tomcat;
+if [ $(/usr/bin/getent group tomcat | wc -c) -eq 0 ];
+    then /usr/sbin/groupadd -r tomcat;
 fi
 
 # if the user already exists, just add to group
-if [ `/usr/bin/getent passwd tomcat` ];
+if [ $(/usr/bin/getent passwd tomcat | wc -c) -ne 0 ];
     then usermod -g tomcat tomcat;
 else
 # otherwise lets just create the user like normal
@@ -227,6 +227,9 @@ fi
 %endif
 
 %changelog
+* Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-7
+- ZC-4211: improve tomcat user detection
+
 * Thu Aug 23 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-6
 - ZC-4037: switch tomcat to private-instance approach
 
