@@ -59,7 +59,6 @@ Requires: ea-apache24-mod_proxy_ajp
 
 # Create Tomcat user/group as we definitely do not want this running as root.
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
-Requires(postun): /usr/sbin/userdel
 
 %if %{with_systemd}
 BuildRequires: systemd-units
@@ -150,20 +149,6 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
-# We don't want to remove the user if the customer had the user already
-# Might have data they want including mail spool
-# We DO NOT set up mail for OUR user, so no need for -r in userdel command
-# if it is our user.
-
-if [ `getent passwd tomcat | cut -d: -f6` == "/opt/cpanel/ea-tomcat85" ];
-    then /usr/sbin/userdel tomcat
-fi
-
-# userdel should remove the group but let us make sure
-# if at some point later it does not we might need something close to the below
-# current this exits with status 2 and causes a warning so taking out
-# /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
-
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
 %defattr(-,tomcat,tomcat,-)
@@ -197,6 +182,7 @@ fi
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
 - ZC-4142: Change RPM to not run tomcat by default
 - ZC-3874: avoid spurious `cat: /var/run/catalina.pid: No such file or directory`
+- ZC-4081: do not remove tomcat user
 
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-7
 - ZC-4211: improve tomcat user detection
