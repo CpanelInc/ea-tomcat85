@@ -196,6 +196,7 @@ fi
 %changelog
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
 - ZC-4142: Change RPM to not run tomcat by default
+- ZC-3874: avoid spurious `cat: /var/run/catalina.pid: No such file or directory`
 
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-7
 - ZC-4211: improve tomcat user detection
