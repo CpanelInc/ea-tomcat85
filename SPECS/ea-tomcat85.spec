@@ -24,18 +24,17 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 7
+%define release_prefix 8
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
 URL: http://tomcat.apache.org/
 Source0: http://mirror.olnevhost.net/pub/apache/tomcat/tomcat-8/v8.5.32/bin/apache-tomcat-8.5.32.tar.gz
 Source1: setenv.sh
-Source2: ea-tomcat85.logrotate
-Source3: ea-tomcat85.service
-Source4: chkconfig
+Source2: sample.ea-tomcat85.logrotate
+Source3: sample.ea-tomcat85.service
+Source4: sample.ea-tomcat85.initd
 Source5: cpanel-scripts-ea-tomcat85
-Source6: Ea_tomcat85.pm
 Source7: README.FASTERSTARTUP
 Source8: README.SECURITY
 Source9: README.USER-SERVICE-MANAGEMENT
@@ -46,6 +45,7 @@ Source13: user-startup.sh
 Source14: README.APACHE-PROXY
 Source15: README.USER-INSTANCE
 Source16: test.jsp
+Source17: README.SHARED-SERVICE-MANAGEMENT
 
 # if I do not have autoreq=0, rpm build will recognize that the ea_
 # scripts need perl and some Cpanel pm's to be on the disk.
@@ -59,7 +59,6 @@ Requires: ea-apache24-mod_proxy_ajp
 
 # Create Tomcat user/group as we definitely do not want this running as root.
 Requires(pre): /usr/sbin/useradd, /usr/bin/getent
-Requires(postun): /usr/sbin/userdel
 
 %if %{with_systemd}
 BuildRequires: systemd-units
@@ -114,34 +113,21 @@ fi
 mkdir -p $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp -r ./* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85
 cp %{SOURCE1} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/
+cp %{SOURCE2} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
+cp %{SOURCE3} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
+cp %{SOURCE4} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
 
 # put logs under /var/log ...
 mkdir -p $RPM_BUILD_ROOT/var/log/ea-tomcat85
 rmdir $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 ln -sf /var/log/ea-tomcat85 $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/logs
 
-# ... and rotate them:
-mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d
-cp %{SOURCE2} $RPM_BUILD_ROOT/etc/logrotate.d/ea-tomcat85
-
 ln -sf /var/run $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/run
-
-%if %{with_systemd}
-mkdir -p $RPM_BUILD_ROOT%{_unitdir}
-cp %{SOURCE3} $RPM_BUILD_ROOT%{_unitdir}/ea_tomcat85.service
-%else
-mkdir -p $RPM_BUILD_ROOT%{_initddir}
-cp %{SOURCE4} $RPM_BUILD_ROOT%{_initddir}/ea_tomcat85
-%endif
 
 mkdir -p $RPM_BUILD_ROOT/var/run/ea-tomcat85
 
 mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/scripts
 cp %{SOURCE5} $RPM_BUILD_ROOT/usr/local/cpanel/scripts/ea-tomcat85
-ln -s restartsrv_base $RPM_BUILD_ROOT/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
-
-mkdir -p $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services
-cp %{SOURCE6} $RPM_BUILD_ROOT/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea_tomcat85.pm
 
 # private instance items
 cp %{SOURCE7} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/README.FASTERSTARTUP
@@ -150,6 +136,7 @@ cp %{SOURCE9} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/README.USER-SERVICE-MANAGEM
 cp %{SOURCE14} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/README.APACHE-PROXY
 cp %{SOURCE15} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/README.USER-INSTANCE
 cp %{SOURCE16} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/test.jsp
+cp %{SOURCE17} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/README.SHARED-SERVICE-MANAGEMENT
 
 cp %{SOURCE10} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/user-init.sh
 cp %{SOURCE11} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/user-setenv.sh
@@ -162,71 +149,42 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
-%post
-
-/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
-/usr/local/cpanel/whostmgr/docroot/themes/x/rebuildtmpl
-
-%preun
-
-/usr/local/cpanel/scripts/restartsrv_ea_tomcat85 stop
-
-# We don't want to remove the user if the customer had the user already
-# Might have data they want including mail spool
-# We DO NOT set up mail for OUR user, so no need for -r in userdel command
-# if it is our user.
-
-if [ `getent passwd tomcat | cut -d: -f6` == "/opt/cpanel/ea-tomcat85" ];
-    then /usr/sbin/userdel tomcat
-fi
-
-# userdel should remove the group but let us make sure
-# if at some point later it does not we might need something close to the below
-# current this exits with status 2 and causes a warning so taking out
-# /usr/bin/getent group tomcat && /usr/sbin/groupdel tomcat
-
-%postun
-
-/usr/local/cpanel/whostmgr/docroot/themes/x/rebuildtmpl
-
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
-/usr/local/cpanel/scripts/restartsrv_ea_tomcat85
-/usr/local/cpanel/Cpanel/ServiceManager/Services/Ea_tomcat85.pm
-%defattr(-,tomcat,tomcat,-)
+%defattr(-,root,tomcat,-)
 /opt/cpanel/ea-tomcat85
 %attr(0755,root,root) /opt/cpanel/ea-tomcat85/user-conf
 %attr(0644,root,root) /opt/cpanel/ea-tomcat85/README*
+%attr(0644,root,root) /opt/cpanel/ea-tomcat85/sample*
 %attr(0755,root,root) /opt/cpanel/ea-tomcat85/bin/user-*.sh
-%config(noreplace) %attr(0755,tomcat,tomcat) /opt/cpanel/ea-tomcat85/bin/setenv.sh
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/server.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/context.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/web.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.policy
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.properties
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/conf/logging.properties
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
-%config(noreplace) %attr(0640,tomcat,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
+%config(noreplace) %attr(0755,root,tomcat) /opt/cpanel/ea-tomcat85/bin/setenv.sh
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/server.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/context.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/jaspic-providers.xsd
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/tomcat-users.xsd
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/web.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.policy
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/catalina.properties
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/logging.properties
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/webapps/ROOT/WEB-INF/web.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/META-INF/context.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/webapps/manager/WEB-INF/web.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/META-INF/context.xml
+%config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/webapps/host-manager/WEB-INF/web.xml
 
 %dir /var/log/ea-tomcat85
 %dir %attr(0770,root,tomcat) /var/run/ea-tomcat85
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
-/etc/logrotate.d/ea-tomcat85
-%if %{with_systemd}
-# Must be root root here for write permissions
-%config(noreplace) %attr(0644,root,root) %{_unitdir}/ea_tomcat85.service
-%else
-%attr(0755,tomcat,tomcat) %{_initddir}/ea_tomcat85
-%endif
 
 %changelog
+* Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
+- ZC-4142: Change RPM to not run tomcat by default
+- ZC-3874: avoid spurious `cat: /var/run/catalina.pid: No such file or directory`
+- ZC-4081: do not remove tomcat user
+- ZC-4082: change %files so tomcat does not have write access to things it shouldn't
+
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-7
 - ZC-4211: improve tomcat user detection
 

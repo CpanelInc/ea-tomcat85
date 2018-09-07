@@ -1,0 +1,32 @@
+If you want to run an instance of tomcat as the tomcat users based out of /opt/cpanel/ea-tomcat85/ (as opposed to a private instance running as the user based out of ~/ea-tomcat85) you are free to do so at your own risk.
+
+For security (and other) reasons, the only method we recommend and support is the private instance method. (If you want ea3’s proxying bahavior you can achieve that w/ a private instance by using ~/ea-tomcat85/conf/server.xml proxy via Apache’s mod_proxy_ajp. Note: the tomcat user can’t see a user’s homedir so this can’t be used to mimic ea3’s shared tomcat without making your server extremely insecure.)
+
+If you still want to proceed these are the basic steps you’ll need to follow (depending on your needs they may be different).
+
+1. Make sure you understand tomcat 8.5 very well
+
+     Further Reading: https://tomcat.apache.org/tomcat-8.5-doc/
+
+2. Setup Log Rotation
+
+    Install /opt/cpanel/ea-tomcat85/sample.ea-tomcat85.logrotate to the appropriate place for your server (e.g. /etc/logrotate.d/ea-tomcat85)
+
+3. Setup Service Monitoring
+
+    Install the appropriate service/init file for your system.
+
+    E.g.
+
+        For C7, /opt/cpanel/ea-tomcat85/sample.ea-tomcat85.service would go to /etc/systemd/system/ea_tomcat85.service
+
+        For C6, /opt/cpanel/ea-tomcat85/sample.ea-tomcat85.initd would go to /etc/init.d/ea_tomcat85
+
+4. Secure Your Configuration
+
+    Further Reading: README.SECURITY
+
+5. Fine Tune It
+
+    Further Reading: README.FASTERSTARTUP, README.APACHE-PROXY
+
