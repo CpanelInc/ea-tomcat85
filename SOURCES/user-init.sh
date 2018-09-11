@@ -1,4 +1,4 @@
-. /etc/rc.d/init.d/functions
+. /opt/cpanel/ea-tomcat85/bin/user-functions
 . $HOME/ea-tomcat85/bin/setenv.sh
  
 tomcat_pid() {
