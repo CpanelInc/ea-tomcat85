@@ -200,7 +200,36 @@ describe "private tomcat manager script" => sub {
             modulino_run_trap("list");
             is( $trap->{stdout}, "" );
         };
+
+        describe "`all`" => sub {
+            it "should error out if given no op arg" => sub {
+                modulino_run_trap("all");
+                is $trap->{die}, "“all” requires an additional argument, either “stop” or “restart”\n";
+            };
+
+            it "should error out if not given a known operation" => sub {
+                modulino_run_trap( "all", "derp" );
+                is $trap->{die}, "“all” requires an additional argument, either “stop” or “restart”\n";
+            };
+
+            it "should stop all users’ instance given `stop`" => sub {
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "stop" );
+                is_deeply $system_calls, [ [qw(ubic stop ea-tomcat85)], [qw(ubic stop ea-tomcat85)] ];
+            };
+
+            it "should stop all users’ instance given `restart`" => sub {
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "restart" );
+                is_deeply $system_calls, [ [qw(ubic restart ea-tomcat85)], [qw(ubic restart ea-tomcat85)] ];
+            };
+        };
     };
+
 };
 
 runtests unless caller;

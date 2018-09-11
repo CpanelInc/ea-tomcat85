@@ -150,6 +150,16 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
+%preun
+
+# upgrade and uninstall
+/usr/local/cpanel/scripts/ea-tomcat85 all stop
+
+%post
+
+# upgrade (and install because ... spec files ... but it'll be a no-op if no one has it yet)
+/usr/local/cpanel/scripts/ea-tomcat85 all restart
+
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
 %defattr(-,root,tomcat,-)
@@ -182,6 +192,7 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %changelog
 * Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
 - ZC-4252: Adjust for private instance in jailshell
+- ZC-4198: stop/restart private instances on update/uninstall as appropriate (ZC-4202/ZC-4203)
 
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
 - ZC-4142: Change RPM to not run tomcat by default

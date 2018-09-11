@@ -37,14 +37,37 @@ my $cmds = {
     list => {
         code => sub {
             _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
-            my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
-            for my $user ( sort keys %cpusers ) {
-                print "$user\n" if -d _get_homedir($user) . "/ea-tomcat85";
+            for my $user ( _get_tomcat85_users() ) {
+                print "$user\n";
             }
         },
         clue     => 'list',
         abstract => 'list users with tomcat 8.5 instance',
         help     => 'List users, one per line, that have a tomcat 8.5 instance.',
+    },
+    all => {
+        code => sub {
+            my ( $app, $operation ) = @_;
+            if ( !defined $operation || ( $operation ne "stop" && $operation ne "restart" ) ) {
+                _bail( $_[0], "“all” requires an additional argument, either “stop” or “restart”" );
+            }
+
+            for my $user ( _get_tomcat85_users() ) {
+                print "Starting $user …\n";
+                my $homedir = _get_homedir($user);
+                Cpanel::AccessIds::do_as_user(
+                    $user,
+                    sub {
+                        local $ENV{HOME} = $homedir;
+                        _ubic_tc($operation);
+                    }
+                );
+                print " … done ($user).\n";
+            }
+        },
+        clue     => 'all <stop|restart>',
+        abstract => 'Stop/restart all tomcat 8.5 instances',
+        help     => 'Stop or restart all users’s tomcat 8.5 instances.',
     },
 };
 
@@ -273,6 +296,17 @@ sub _write_dom {
 }
 
 sub _get_cmd { $cmds }
+
+sub _get_tomcat85_users {
+    my @tomcat85_users;
+
+    my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
+    for my $user ( sort keys %cpusers ) {
+        push @tomcat85_users, $user if -d _get_homedir($user) . "/ea-tomcat85";
+    }
+
+    return @tomcat85_users;
+}
 
 1;
 
