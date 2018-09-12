@@ -193,6 +193,7 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 * Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
 - ZC-4252: Adjust for private instance in jailshell
 - ZC-4198: stop/restart private instances on update/uninstall as appropriate (ZC-4202/ZC-4203)
+- ZC-4198: Make private instance default configuration more secure (ZC-4205)
 
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
 - ZC-4142: Change RPM to not run tomcat by default

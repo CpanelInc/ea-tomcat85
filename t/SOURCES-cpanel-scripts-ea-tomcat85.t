@@ -147,6 +147,30 @@ describe "private tomcat manager script" => sub {
             is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => 10002, ajp_port => 10001, ajp_redirect_port => 10002 };
         };
 
+        it "`add <USER>` should setup a more secure default config" => sub {
+            modulino_run_trap( add => "user$$" );
+            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
+            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml" );
+            my %res;
+            ( $res{shutdown_port} )        = $srv->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
+            ( $res{connector_xpoweredby} ) = $srv->findnodes("//Server/Service/Connector")->shift()->getAttribute("xpoweredBy");
+            for my $host ( $srv->findnodes("//Host") ) {
+                ( $res{host_errorreportvalve} ) = $host->findnodes('./Valve[@className="org.apache.catalina.valves.ErrorReportValve" and @showReport="false" and @showServerInfo="false"]')->shift() ? 1 : 0;
+                for my $attr (qw(autoDeploy deployOnStartup deployXML)) {
+                    $res{"host_$attr"} = $host->getAttribute($attr);
+                }
+            }
+
+            ( $res{web_defaultservlet_show_serverinfo} ) = $web->findnodes('//servlet-class[text()="org.apache.catalina.servlets.DefaultServlet"]/init-param/param-name[text()="showServerInfo"]/../param-value[text()="false"]')->shift() ? 1 : 0;
+
+            # <init-param><param-name>showServerInfo</param-name><param-value>false</param-value></init-param>
+            ( $res{web_app_failed_request_filter} ) = $web->findnodes('///web-app/filter/filter-name[text()="failedRequestFilter"]/../filter-class[text()="org.apache.catalina.filters.FailedRequestFilter"]') ? 1 : 0;
+
+            # '<filter><filter-name>failedRequestFilter</filter-name><fil    ter-class>org.apache.catalina.filters.FailedRequestFilter</filter-class><async-supported>true</async-supported></filter>'
+
+            is_deeply \%res, { shutdown_port => -1, connector_xpoweredby => "false", host_errorreportvalve => 1, host_autoDeploy => "false", host_deployOnStartup => "false", host_deployXML => "false", web_defaultservlet_show_serverinfo => 1, web_app_failed_request_filter => 1 };
+        };
+
         it "`list` should error out when given extra arguments" => sub {
             modulino_run_trap( "list", "--derp" );
             is( $trap->{die}, "“list” does not take any arguments\n" );

@@ -134,8 +134,18 @@ sub add {
             system("chmod 640 conf/*");
 
             my $dom = XML::LibXML->load_xml( location => "conf/server.xml" );
-            $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );
+            $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );    # disable the shutdown port
+
             for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {
+
+                # hide version exposure
+                # Could set `server` in addition to xpoweredBy but:
+                #    1. it is a generic value for tomcat 4.1-8.5 so all an attacker can gelan is that it is tomcat
+                #    2. if we set it to something else it will be a known value and they will be able to
+                #       determine not only that its tomcat but also the version
+                $conn->setAttribute( xpoweredBy => "false" );
+
+                # set the ports to the user’s ports
                 if ( $conn->getAttribute('protocol') eq 'HTTP/1.1' ) {
                     $conn->setAttribute( port         => $http_port );
                     $conn->setAttribute( redirectPort => $redirect_port );
@@ -145,7 +155,40 @@ sub add {
                     $conn->setAttribute( redirectPort => $redirect_port );
                 }
             }
+
+            my $valve = $dom->createElement("Valve");
+            $valve->setAttribute( className      => "org.apache.catalina.valves.ErrorReportValve" );
+            $valve->setAttribute( showReport     => "false" );
+            $valve->setAttribute( showServerInfo => "false" );
+            for my $host ( $dom->findnodes("//Host") ) {
+
+                # hide version exposure: Create a ErrorReportValve w/ showServerInfo and showReport attributes to false
+                $host->addChild($valve);
+
+                # Host – autoDeploy, deployOnStartup, and deployXML false
+                #   - FWiW, ASF does exploded deploys instead of ^^^
+                $host->setAttribute( autoDeploy      => "false" );
+                $host->setAttribute( deployOnStartup => "false" );
+                $host->setAttribute( deployXML       => "false" );
+            }
+
             _write_dom( "conf/server.xml" => $dom );
+
+            my $web = XML::LibXML->load_xml( location => "conf/web.xml" );
+
+            # hide version exposure: set DefaultServlet’s showServerInfo to false
+            my $show_server_info_param_node = XML::LibXML->load_xml( string => '<init-param><param-name>showServerInfo</param-name><param-value>false</param-value></init-param>' );
+            for my $servlet ( $web->findnodes('//servlet-class[text()="org.apache.catalina.servlets.DefaultServlet"]') ) {
+                $servlet->parentNode->addChild($show_server_info_param_node);
+            }
+
+            # configure failedRequestFilter to reject requests that had errors
+            # during request parameter parsing instead of ignoring the errors
+            my $failed_request_filter_node = XML::LibXML->load_xml( string => '<filter><filter-name>failedRequestFilter</filter-name><filter-class>org.apache.catalina.filters.FailedRequestFilter</filter-class><async-supported>true</async-supported></filter>' );
+            for my $wa ( $web->findnodes('/web-app') ) {
+                $wa->addChild($failed_request_filter_node);
+            }
+            _write_dom( "conf/web.xml", $web );
 
             _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
 
