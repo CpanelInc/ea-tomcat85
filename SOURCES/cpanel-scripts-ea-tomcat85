@@ -174,22 +174,6 @@ sub add {
 
             _write_dom( "conf/server.xml" => $dom );
 
-            my $web = XML::LibXML->load_xml( location => "conf/web.xml" );
-
-            # hide version exposure: set DefaultServlet’s showServerInfo to false
-            my $show_server_info_param_node = XML::LibXML->load_xml( string => '<init-param><param-name>showServerInfo</param-name><param-value>false</param-value></init-param>' );
-            for my $servlet ( $web->findnodes('//servlet-class[text()="org.apache.catalina.servlets.DefaultServlet"]') ) {
-                $servlet->parentNode->addChild($show_server_info_param_node);
-            }
-
-            # configure failedRequestFilter to reject requests that had errors
-            # during request parameter parsing instead of ignoring the errors
-            my $failed_request_filter_node = XML::LibXML->load_xml( string => '<filter><filter-name>failedRequestFilter</filter-name><filter-class>org.apache.catalina.filters.FailedRequestFilter</filter-class><async-supported>true</async-supported></filter>' );
-            for my $wa ( $web->findnodes('/web-app') ) {
-                $wa->addChild($failed_request_filter_node);
-            }
-            _write_dom( "conf/web.xml", $web );
-
             _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
 
             _ubic_tc("start");

@@ -161,14 +161,7 @@ describe "private tomcat manager script" => sub {
                 }
             }
 
-            ( $res{web_defaultservlet_show_serverinfo} ) = $web->findnodes('//servlet-class[text()="org.apache.catalina.servlets.DefaultServlet"]/init-param/param-name[text()="showServerInfo"]/../param-value[text()="false"]')->shift() ? 1 : 0;
-
-            # <init-param><param-name>showServerInfo</param-name><param-value>false</param-value></init-param>
-            ( $res{web_app_failed_request_filter} ) = $web->findnodes('///web-app/filter/filter-name[text()="failedRequestFilter"]/../filter-class[text()="org.apache.catalina.filters.FailedRequestFilter"]') ? 1 : 0;
-
-            # '<filter><filter-name>failedRequestFilter</filter-name><fil    ter-class>org.apache.catalina.filters.FailedRequestFilter</filter-class><async-supported>true</async-supported></filter>'
-
-            is_deeply \%res, { shutdown_port => -1, connector_xpoweredby => "false", host_errorreportvalve => 1, host_autoDeploy => "false", host_deployOnStartup => "false", host_deployXML => "false", web_defaultservlet_show_serverinfo => 1, web_app_failed_request_filter => 1 };
+            is_deeply \%res, { shutdown_port => -1, connector_xpoweredby => "false", host_errorreportvalve => 1, host_autoDeploy => "false", host_deployOnStartup => "false", host_deployXML => "false" };
         };
 
         it "`list` should error out when given extra arguments" => sub {
