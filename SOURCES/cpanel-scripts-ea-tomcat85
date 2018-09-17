@@ -37,14 +37,37 @@ my $cmds = {
     list => {
         code => sub {
             _bail( $_[0], "“list” does not take any arguments" ) if @_ > 1;
-            my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
-            for my $user ( sort keys %cpusers ) {
-                print "$user\n" if -d _get_homedir($user) . "/ea-tomcat85";
+            for my $user ( _get_tomcat85_users() ) {
+                print "$user\n";
             }
         },
         clue     => 'list',
         abstract => 'list users with tomcat 8.5 instance',
         help     => 'List users, one per line, that have a tomcat 8.5 instance.',
+    },
+    all => {
+        code => sub {
+            my ( $app, $operation ) = @_;
+            if ( !defined $operation || ( $operation ne "stop" && $operation ne "restart" ) ) {
+                _bail( $_[0], "“all” requires an additional argument, either “stop” or “restart”" );
+            }
+
+            for my $user ( _get_tomcat85_users() ) {
+                print "Starting $user …\n";
+                my $homedir = _get_homedir($user);
+                Cpanel::AccessIds::do_as_user(
+                    $user,
+                    sub {
+                        local $ENV{HOME} = $homedir;
+                        _ubic_tc($operation);
+                    }
+                );
+                print " … done ($user).\n";
+            }
+        },
+        clue     => 'all <stop|restart>',
+        abstract => 'Stop/restart all tomcat 8.5 instances',
+        help     => 'Stop or restart all users’s tomcat 8.5 instances.',
     },
 };
 
@@ -111,8 +134,18 @@ sub add {
             system("chmod 640 conf/*");
 
             my $dom = XML::LibXML->load_xml( location => "conf/server.xml" );
-            $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );
+            $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );    # disable the shutdown port
+
             for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {
+
+                # hide version exposure
+                # Could set `server` in addition to xpoweredBy but:
+                #    1. it is a generic value for tomcat 4.1-8.5 so all an attacker can gelan is that it is tomcat
+                #    2. if we set it to something else it will be a known value and they will be able to
+                #       determine not only that its tomcat but also the version
+                $conn->setAttribute( xpoweredBy => "false" );
+
+                # set the ports to the user’s ports
                 if ( $conn->getAttribute('protocol') eq 'HTTP/1.1' ) {
                     $conn->setAttribute( port         => $http_port );
                     $conn->setAttribute( redirectPort => $redirect_port );
@@ -122,6 +155,23 @@ sub add {
                     $conn->setAttribute( redirectPort => $redirect_port );
                 }
             }
+
+            my $valve = $dom->createElement("Valve");
+            $valve->setAttribute( className      => "org.apache.catalina.valves.ErrorReportValve" );
+            $valve->setAttribute( showReport     => "false" );
+            $valve->setAttribute( showServerInfo => "false" );
+            for my $host ( $dom->findnodes("//Host") ) {
+
+                # hide version exposure: Create a ErrorReportValve w/ showServerInfo and showReport attributes to false
+                $host->addChild($valve);
+
+                # Host – autoDeploy, deployOnStartup, and deployXML false
+                #   - FWiW, ASF does exploded deploys instead of ^^^
+                $host->setAttribute( autoDeploy      => "false" );
+                $host->setAttribute( deployOnStartup => "false" );
+                $host->setAttribute( deployXML       => "false" );
+            }
+
             _write_dom( "conf/server.xml" => $dom );
 
             _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
@@ -273,6 +323,17 @@ sub _write_dom {
 }
 
 sub _get_cmd { $cmds }
+
+sub _get_tomcat85_users {
+    my @tomcat85_users;
+
+    my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
+    for my $user ( sort keys %cpusers ) {
+        push @tomcat85_users, $user if -d _get_homedir($user) . "/ea-tomcat85";
+    }
+
+    return @tomcat85_users;
+}
 
 1;
 

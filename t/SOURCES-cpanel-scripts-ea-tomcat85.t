@@ -147,6 +147,23 @@ describe "private tomcat manager script" => sub {
             is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => 10002, ajp_port => 10001, ajp_redirect_port => 10002 };
         };
 
+        it "`add <USER>` should setup a more secure default config" => sub {
+            modulino_run_trap( add => "user$$" );
+            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
+            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml" );
+            my %res;
+            ( $res{shutdown_port} )        = $srv->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
+            ( $res{connector_xpoweredby} ) = $srv->findnodes("//Server/Service/Connector")->shift()->getAttribute("xpoweredBy");
+            for my $host ( $srv->findnodes("//Host") ) {
+                ( $res{host_errorreportvalve} ) = $host->findnodes('./Valve[@className="org.apache.catalina.valves.ErrorReportValve" and @showReport="false" and @showServerInfo="false"]')->shift() ? 1 : 0;
+                for my $attr (qw(autoDeploy deployOnStartup deployXML)) {
+                    $res{"host_$attr"} = $host->getAttribute($attr);
+                }
+            }
+
+            is_deeply \%res, { shutdown_port => -1, connector_xpoweredby => "false", host_errorreportvalve => 1, host_autoDeploy => "false", host_deployOnStartup => "false", host_deployXML => "false" };
+        };
+
         it "`list` should error out when given extra arguments" => sub {
             modulino_run_trap( "list", "--derp" );
             is( $trap->{die}, "“list” does not take any arguments\n" );
@@ -200,7 +217,36 @@ describe "private tomcat manager script" => sub {
             modulino_run_trap("list");
             is( $trap->{stdout}, "" );
         };
+
+        describe "`all`" => sub {
+            it "should error out if given no op arg" => sub {
+                modulino_run_trap("all");
+                is $trap->{die}, "“all” requires an additional argument, either “stop” or “restart”\n";
+            };
+
+            it "should error out if not given a known operation" => sub {
+                modulino_run_trap( "all", "derp" );
+                is $trap->{die}, "“all” requires an additional argument, either “stop” or “restart”\n";
+            };
+
+            it "should stop all users’ instance given `stop`" => sub {
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "stop" );
+                is_deeply $system_calls, [ [qw(ubic stop ea-tomcat85)], [qw(ubic stop ea-tomcat85)] ];
+            };
+
+            it "should stop all users’ instance given `restart`" => sub {
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "restart" );
+                is_deeply $system_calls, [ [qw(ubic restart ea-tomcat85)], [qw(ubic restart ea-tomcat85)] ];
+            };
+        };
     };
+
 };
 
 runtests unless caller;

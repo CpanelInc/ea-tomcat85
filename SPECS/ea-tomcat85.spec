@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 8
+%define release_prefix 9
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -116,6 +116,7 @@ cp %{SOURCE1} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/
 cp %{SOURCE2} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
 cp %{SOURCE3} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
 cp %{SOURCE4} $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/
+cp /etc/rc.d/init.d/functions $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/bin/user-functions
 
 # put logs under /var/log ...
 mkdir -p $RPM_BUILD_ROOT/var/log/ea-tomcat85
@@ -149,6 +150,16 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
+%preun
+
+# upgrade and uninstall
+/usr/local/cpanel/scripts/ea-tomcat85 all stop
+
+%post
+
+# upgrade (and install because ... spec files ... but it'll be a no-op if no one has it yet)
+/usr/local/cpanel/scripts/ea-tomcat85 all restart
+
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
 %defattr(-,root,tomcat,-)
@@ -156,7 +167,7 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %attr(0755,root,root) /opt/cpanel/ea-tomcat85/user-conf
 %attr(0644,root,root) /opt/cpanel/ea-tomcat85/README*
 %attr(0644,root,root) /opt/cpanel/ea-tomcat85/sample*
-%attr(0755,root,root) /opt/cpanel/ea-tomcat85/bin/user-*.sh
+%attr(0755,root,root) /opt/cpanel/ea-tomcat85/bin/user-*
 %config(noreplace) %attr(0755,root,tomcat) /opt/cpanel/ea-tomcat85/bin/setenv.sh
 %config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/server.xml
 %config(noreplace) %attr(0640,root,tomcat) /opt/cpanel/ea-tomcat85/conf/context.xml
@@ -179,6 +190,11 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 
 %changelog
+* Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
+- ZC-4252: Adjust for private instance in jailshell
+- ZC-4198: stop/restart private instances on update/uninstall as appropriate (ZC-4202/ZC-4203)
+- ZC-4198: Make private instance default configuration more secure (ZC-4205)
+
 * Tue Sep 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-8
 - ZC-4142: Change RPM to not run tomcat by default
 - ZC-3874: avoid spurious `cat: /var/run/catalina.pid: No such file or directory`
