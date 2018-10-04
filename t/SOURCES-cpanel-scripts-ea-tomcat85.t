@@ -41,7 +41,7 @@ describe "private tomcat manager script" => sub {
         local *Cpanel::Config::LoadUserDomains::loaduserdomains = sub { "user$$" => [], "us3r$$" => [], };
         local *scripts::cpuser_service_manager::_get_homedir    = sub { $conf{_homedir} };
         local *scripts::ea_tomcat85::_get_homedir               = sub { $conf{_homedir} };
-        local *Cpanel::AccessIds::do_as_user                    = sub { shift; shift->() };
+        local *Cpanel::AccessIds::do_as_user_with_exception     = sub { shift; shift->() };
         local $scripts::cpuser_port_authority::port_authority_conf = "$conf{_homedir}/pa_conf.json";
         use warnings "redefine", "once";
 

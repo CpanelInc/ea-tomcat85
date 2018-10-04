@@ -55,7 +55,7 @@ my $cmds = {
             for my $user ( _get_tomcat85_users() ) {
                 print "Starting $user …\n";
                 my $homedir = _get_homedir($user);
-                Cpanel::AccessIds::do_as_user(
+                Cpanel::AccessIds::do_as_user_with_exception(
                     $user,
                     sub {
                         local $ENV{HOME} = $homedir;
@@ -103,7 +103,7 @@ sub add {
     my ( $http_port, $ajp_port, $redirect_port ) = _get_ports($user);
 
     my $curdir = Cwd::cwd();
-    Cpanel::AccessIds::do_as_user(
+    Cpanel::AccessIds::do_as_user_with_exception(
         $user,
         sub {
             local $ENV{HOME} = $homedir;
@@ -197,7 +197,7 @@ sub rem {
         die "This operation can not be undone, please pass the --verify=<USER> to indicate you’ve backed up anything in $homedir/ea-tomcat85/ that you want to keep!\n";
     }
 
-    Cpanel::AccessIds::do_as_user(
+    Cpanel::AccessIds::do_as_user_with_exception(
         $user,
         sub {
             local $ENV{HOME} = $homedir;
