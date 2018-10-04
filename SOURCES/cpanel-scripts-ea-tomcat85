@@ -133,7 +133,7 @@ sub add {
             system("cp -r /opt/cpanel/ea-tomcat85/user-conf/* conf/");
             system("chmod 640 conf/*");
 
-            my $dom = XML::LibXML->load_xml( location => "conf/server.xml" );
+            my $dom = XML::LibXML->load_xml( location => "conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );    # disable the shutdown port
 
             for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {

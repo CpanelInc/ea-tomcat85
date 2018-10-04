@@ -193,6 +193,7 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 * Thu Oct 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-10
 - ZC-4319: Minor security improvements
 - ZC-4318: do not suppress errors from code run under dropped privileges
+- ZC-4303: do not load external DTDs or external entities in tomcat’s XML files
 
 * Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
 - ZC-4252: Adjust for private instance in jailshell

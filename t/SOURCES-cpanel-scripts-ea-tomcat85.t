@@ -129,7 +129,7 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should configure ports in server.xml" => sub {
             modulino_run_trap( add => "user$$" );
-            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
+            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} ) = $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
 
@@ -149,8 +149,8 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should setup a more secure default config" => sub {
             modulino_run_trap( add => "user$$" );
-            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
-            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml" );
+            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
+            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml",    load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} )        = $srv->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
             ( $res{connector_xpoweredby} ) = $srv->findnodes("//Server/Service/Connector")->shift()->getAttribute("xpoweredBy");
