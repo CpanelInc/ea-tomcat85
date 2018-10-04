@@ -59,7 +59,9 @@ my $cmds = {
                     $user,
                     sub {
                         local $ENV{HOME} = $homedir;
+                        my $orig_umask = umask(0027);
                         _ubic_tc($operation);
+                        umask($orig_umask);
                     }
                 );
                 print " … done ($user).\n";
@@ -107,6 +109,7 @@ sub add {
         $user,
         sub {
             local $ENV{HOME} = $homedir;
+            my $orig_umask = umask(0027);
 
             mkdir "$homedir/ea-tomcat85" or die "Could not create directory “$homedir/ea-tomcat85”: $!\n";
             chdir "$homedir/ea-tomcat85" or die "Could not change into “$homedir/ea-tomcat85”: $!\n";
@@ -177,6 +180,8 @@ sub add {
             _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
 
             _ubic_tc("start");
+
+            umask($orig_umask);
         }
     );
 
@@ -201,9 +206,11 @@ sub rem {
         $user,
         sub {
             local $ENV{HOME} = $homedir;
+            my $orig_umask = umask(0027);
             _ubic_tc("stop");
             _sysdie( "remove service management" => qw(/usr/local/cpanel/scripts/cpuser_service_manager rem ea-tomcat85) );
             File::Path::Tiny::rm("$homedir/ea-tomcat85") or die "Could not remove directory “$homedir/ea-tomcat85”: $!\n";
+            umask($orig_umask);
         }
     );
 
