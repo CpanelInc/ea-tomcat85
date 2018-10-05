@@ -195,6 +195,7 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 - ZC-4318: do not suppress errors from code run under dropped privileges
 - ZC-4303: do not load external DTDs or external entities in tomcat’s XML files
 - ZC-4299: set umask when doing things as the user for better permissions
+- ZC-4300: remove pointless redirectPort that is in the default setup
 
 * Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
 - ZC-4252: Adjust for private instance in jailshell

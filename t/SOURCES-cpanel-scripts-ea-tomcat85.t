@@ -114,7 +114,7 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should get ports" => sub {
             modulino_run_trap( add => "user$$" );
-            is_deeply $system_calls->[0], [ '/usr/local/cpanel/scripts/cpuser_port_authority', 'give', "user$$", 3, '--service=ea-tomcat85' ];
+            is_deeply $system_calls->[0], [ '/usr/local/cpanel/scripts/cpuser_port_authority', 'give', "user$$", 2, '--service=ea-tomcat85' ];
         };
 
         it "`add <USER>` should setup service" => sub {
@@ -144,7 +144,7 @@ describe "private tomcat manager script" => sub {
                 }
             }
 
-            is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => 10002, ajp_port => 10001, ajp_redirect_port => 10002 };
+            is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => undef, ajp_port => 10001, ajp_redirect_port => undef };
         };
 
         it "`add <USER>` should setup a more secure default config" => sub {
