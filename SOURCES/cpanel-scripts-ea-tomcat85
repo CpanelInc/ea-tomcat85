@@ -55,11 +55,13 @@ my $cmds = {
             for my $user ( _get_tomcat85_users() ) {
                 print "Starting $user …\n";
                 my $homedir = _get_homedir($user);
-                Cpanel::AccessIds::do_as_user(
+                Cpanel::AccessIds::do_as_user_with_exception(
                     $user,
                     sub {
                         local $ENV{HOME} = $homedir;
+                        my $orig_umask = umask(0027);
                         _ubic_tc($operation);
+                        umask($orig_umask);
                     }
                 );
                 print " … done ($user).\n";
@@ -100,13 +102,14 @@ sub add {
 
     print "Adding $user’s tomcat 8.5 instance …\n";
 
-    my ( $http_port, $ajp_port, $redirect_port ) = _get_ports($user);
+    my ( $http_port, $ajp_port ) = _get_ports($user);
 
     my $curdir = Cwd::cwd();
-    Cpanel::AccessIds::do_as_user(
+    Cpanel::AccessIds::do_as_user_with_exception(
         $user,
         sub {
             local $ENV{HOME} = $homedir;
+            my $orig_umask = umask(0027);
 
             mkdir "$homedir/ea-tomcat85" or die "Could not create directory “$homedir/ea-tomcat85”: $!\n";
             chdir "$homedir/ea-tomcat85" or die "Could not change into “$homedir/ea-tomcat85”: $!\n";
@@ -133,7 +136,7 @@ sub add {
             system("cp -r /opt/cpanel/ea-tomcat85/user-conf/* conf/");
             system("chmod 640 conf/*");
 
-            my $dom = XML::LibXML->load_xml( location => "conf/server.xml" );
+            my $dom = XML::LibXML->load_xml( location => "conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );    # disable the shutdown port
 
             for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {
@@ -147,12 +150,12 @@ sub add {
 
                 # set the ports to the user’s ports
                 if ( $conn->getAttribute('protocol') eq 'HTTP/1.1' ) {
-                    $conn->setAttribute( port         => $http_port );
-                    $conn->setAttribute( redirectPort => $redirect_port );
+                    $conn->setAttribute( port => $http_port );
+                    $conn->removeAttribute('redirectPort');
                 }
                 elsif ( $conn->getAttribute('protocol') eq 'AJP/1.3' ) {
-                    $conn->setAttribute( port         => $ajp_port );
-                    $conn->setAttribute( redirectPort => $redirect_port );
+                    $conn->setAttribute( port => $ajp_port );
+                    $conn->removeAttribute('redirectPort');
                 }
             }
 
@@ -177,6 +180,8 @@ sub add {
             _sysdie( "add service management" => ( qw(/usr/local/cpanel/scripts/cpuser_service_manager add ea-tomcat85), "--init-script=/opt/cpanel/ea-tomcat85/bin/user-init.sh" ) );
 
             _ubic_tc("start");
+
+            umask($orig_umask);
         }
     );
 
@@ -197,13 +202,15 @@ sub rem {
         die "This operation can not be undone, please pass the --verify=<USER> to indicate you’ve backed up anything in $homedir/ea-tomcat85/ that you want to keep!\n";
     }
 
-    Cpanel::AccessIds::do_as_user(
+    Cpanel::AccessIds::do_as_user_with_exception(
         $user,
         sub {
             local $ENV{HOME} = $homedir;
+            my $orig_umask = umask(0027);
             _ubic_tc("stop");
             _sysdie( "remove service management" => qw(/usr/local/cpanel/scripts/cpuser_service_manager rem ea-tomcat85) );
             File::Path::Tiny::rm("$homedir/ea-tomcat85") or die "Could not remove directory “$homedir/ea-tomcat85”: $!\n";
+            umask($orig_umask);
         }
     );
 
@@ -265,7 +272,7 @@ sub _get_homedir {
 
 sub _get_ports {
     my ($user) = @_;
-    my ( $http_port, $ajp_port, $redirect_port );
+    my ( $http_port, $ajp_port );
 
     _load_modulino("/usr/local/cpanel/scripts/cpuser_port_authority");
 
@@ -278,12 +285,12 @@ sub _get_ports {
             push @ports, $port;
         }
         if ( @ports > 2 ) {
-            ( $http_port, $ajp_port, $redirect_port ) = sort @ports;
+            ( $http_port, $ajp_port ) = sort @ports;
         }
     }
 
-    if ( !$http_port || !$ajp_port || !$redirect_port ) {
-        my @cmd = ( qw(/usr/local/cpanel/scripts/cpuser_port_authority give), $user, qw(3 --service=ea-tomcat85) );
+    if ( !$http_port || !$ajp_port ) {
+        my @cmd = ( qw(/usr/local/cpanel/scripts/cpuser_port_authority give), $user, qw(2 --service=ea-tomcat85) );
         my ( $stdout, $stderr, $exit ) = capture { system(@cmd) };    # we could scripts::cpuser_port_authority::run("give", … but its nice to output the command, and the exit value is nice to detect success/failure
 
         if ($exit) {
@@ -293,15 +300,15 @@ sub _get_ports {
         else {
             my @lines = split( /\n/, $stdout );
             chomp(@lines);
-            ( $http_port, $ajp_port, $redirect_port ) = sort grep { m/^[1-9][0-9]+$/ } @lines;
+            ( $http_port, $ajp_port ) = sort grep { m/^[1-9][0-9]+$/ } @lines;
         }
     }
 
-    if ( !$http_port || !$ajp_port || !$redirect_port ) {
+    if ( !$http_port || !$ajp_port ) {
         die "Failed to get three ports!\n";
     }
 
-    return ( $http_port, $ajp_port, $redirect_port );
+    return ( $http_port, $ajp_port );
 }
 
 sub _load_modulino {
