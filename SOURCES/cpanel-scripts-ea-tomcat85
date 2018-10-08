@@ -273,6 +273,7 @@ sub _get_homedir {
 sub _get_ports {
     my ($user) = @_;
     my ( $http_port, $ajp_port );
+    my $port_count = 2;
 
     _load_modulino("/usr/local/cpanel/scripts/cpuser_port_authority");
 
@@ -284,13 +285,13 @@ sub _get_ports {
             next if $hr->{$port}{owner} ne $user || !exists $hr->{$port}{service} || $hr->{$port}{service} ne 'ea-tomcat85';
             push @ports, $port;
         }
-        if ( @ports > 2 ) {
+        if ( @ports >= $port_count ) {
             ( $http_port, $ajp_port ) = sort @ports;
         }
     }
 
     if ( !$http_port || !$ajp_port ) {
-        my @cmd = ( qw(/usr/local/cpanel/scripts/cpuser_port_authority give), $user, qw(2 --service=ea-tomcat85) );
+        my @cmd = ( qw(/usr/local/cpanel/scripts/cpuser_port_authority give), $user, $port_count, '--service=ea-tomcat85' );
         my ( $stdout, $stderr, $exit ) = capture { system(@cmd) };    # we could scripts::cpuser_port_authority::run("give", … but its nice to output the command, and the exit value is nice to detect success/failure
 
         if ($exit) {
@@ -305,7 +306,7 @@ sub _get_ports {
     }
 
     if ( !$http_port || !$ajp_port ) {
-        die "Failed to get three ports!\n";
+        die "Failed to get ports ($port_count)!\n";
     }
 
     return ( $http_port, $ajp_port );
