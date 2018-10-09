@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 9
+%define release_prefix 10
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -190,6 +190,13 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 
 %changelog
+* Thu Oct 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-10
+- ZC-4319: Minor security improvements
+- ZC-4318: do not suppress errors from code run under dropped privileges
+- ZC-4303: do not load external DTDs or external entities in tomcat’s XML files
+- ZC-4299: set umask when doing things as the user for better permissions
+- ZC-4300: remove pointless redirectPort that is in the default setup
+
 * Tue Sep 11 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-9
 - ZC-4252: Adjust for private instance in jailshell
 - ZC-4198: stop/restart private instances on update/uninstall as appropriate (ZC-4202/ZC-4203)

@@ -41,7 +41,7 @@ describe "private tomcat manager script" => sub {
         local *Cpanel::Config::LoadUserDomains::loaduserdomains = sub { "user$$" => [], "us3r$$" => [], };
         local *scripts::cpuser_service_manager::_get_homedir    = sub { $conf{_homedir} };
         local *scripts::ea_tomcat85::_get_homedir               = sub { $conf{_homedir} };
-        local *Cpanel::AccessIds::do_as_user                    = sub { shift; shift->() };
+        local *Cpanel::AccessIds::do_as_user_with_exception     = sub { shift; shift->() };
         local $scripts::cpuser_port_authority::port_authority_conf = "$conf{_homedir}/pa_conf.json";
         use warnings "redefine", "once";
 
@@ -114,7 +114,7 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should get ports" => sub {
             modulino_run_trap( add => "user$$" );
-            is_deeply $system_calls->[0], [ '/usr/local/cpanel/scripts/cpuser_port_authority', 'give', "user$$", 3, '--service=ea-tomcat85' ];
+            is_deeply $system_calls->[0], [ '/usr/local/cpanel/scripts/cpuser_port_authority', 'give', "user$$", 2, '--service=ea-tomcat85' ];
         };
 
         it "`add <USER>` should setup service" => sub {
@@ -129,7 +129,7 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should configure ports in server.xml" => sub {
             modulino_run_trap( add => "user$$" );
-            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
+            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} ) = $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
 
@@ -144,13 +144,13 @@ describe "private tomcat manager script" => sub {
                 }
             }
 
-            is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => 10002, ajp_port => 10001, ajp_redirect_port => 10002 };
+            is_deeply \%res, { shutdown_port => -1, http_port => 10000, http_redirect_port => undef, ajp_port => 10001, ajp_redirect_port => undef };
         };
 
         it "`add <USER>` should setup a more secure default config" => sub {
             modulino_run_trap( add => "user$$" );
-            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml" );
-            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml" );
+            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
+            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml",    load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} )        = $srv->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
             ( $res{connector_xpoweredby} ) = $srv->findnodes("//Server/Service/Connector")->shift()->getAttribute("xpoweredBy");
