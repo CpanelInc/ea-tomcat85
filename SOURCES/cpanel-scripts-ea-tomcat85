@@ -19,6 +19,8 @@ use Capture::Tiny 'capture';
 use XML::LibXML ();
 use Cwd         ();
 use App::CmdDispatch;
+use Path::Iter            ();
+use Cpanel::SafeDir::Read ();
 
 my $cmds = {
     add => {
@@ -98,7 +100,7 @@ sub run {
 sub add {
     my ( $app, $user, $homedir ) = _process_args(@_);
 
-    _bail( $app, "The user already has a tomcat 8.5 instance." ) if -d "$homedir/ea-tomcat85";
+    _bail( $app, "The user already has a tomcat 8.5 instance." ) if -d "$homedir/ea-tomcat85" && !_tomcat85_dir_is_empty_or_apps_only("$homedir/ea-tomcat85");
 
     print "Adding $user’s tomcat 8.5 instance …\n";
 
@@ -111,7 +113,8 @@ sub add {
             local $ENV{HOME} = $homedir;
             my $orig_umask = umask(0027);
 
-            mkdir "$homedir/ea-tomcat85" or die "Could not create directory “$homedir/ea-tomcat85”: $!\n";
+            mkdir "$homedir/ea-tomcat85";    # it may exist so don’t check it’s RV
+            die "Could not create directory “$homedir/ea-tomcat85”: $!\n" if !-d "$homedir/ea-tomcat85";
             chdir "$homedir/ea-tomcat85" or die "Could not change into “$homedir/ea-tomcat85”: $!\n";
 
             for my $dir (qw(conf bin logs run temp webapps/ROOT work/Catalina/localhost/ROOT)) {
@@ -194,7 +197,7 @@ sub add {
 sub rem {
     my ( $app, $user, $homedir ) = _process_args(@_);
 
-    _bail( $app, "The user does not have a tomcat 8.5 instance." ) if !-d "$homedir/ea-tomcat85";
+    _bail( $app, "The user does not have a tomcat 8.5 instance." ) if !-d "$homedir/ea-tomcat85" || _tomcat85_dir_is_empty_or_apps_only("$homedir/ea-tomcat85");
 
     print "Removing $user’s tomcat 8.5 instance …\n";
 
@@ -209,7 +212,21 @@ sub rem {
             my $orig_umask = umask(0027);
             _ubic_tc("stop");
             _sysdie( "remove service management" => qw(/usr/local/cpanel/scripts/cpuser_service_manager rem ea-tomcat85) );
-            File::Path::Tiny::rm("$homedir/ea-tomcat85") or die "Could not remove directory “$homedir/ea-tomcat85”: $!\n";
+
+            # Can’t just File::Path::Tiny::rm("$homedir/ea-tomcat85")
+            # because we want to keep these if they are not empty
+            rmdir("$homedir/ea-tomcat85/webapps/ROOT");
+            rmdir("$homedir/ea-tomcat85/webapps");
+            my $fetch = Path::Iter::get_iterator("$homedir/ea-tomcat85");
+            while ( my $path = $fetch->() ) {
+                next
+                  if $path eq "$homedir/ea-tomcat85"
+                  || $path =~ m{^\Q$homedir\E/ea-tomcat85/webapps(:?/|)};
+
+                -l $path || -f _ ? unlink($path) : File::Path::Tiny::rm($path);
+            }
+            rmdir("$homedir/ea-tomcat85");    # if its not empty (webapps) then this fails, that is what we want
+
             umask($orig_umask);
         }
     );
@@ -337,10 +354,18 @@ sub _get_tomcat85_users {
 
     my %cpusers = Cpanel::Config::LoadUserDomains::loaduserdomains( undef, 0, 1 );
     for my $user ( sort keys %cpusers ) {
-        push @tomcat85_users, $user if -d _get_homedir($user) . "/ea-tomcat85";
+        my $homedir = _get_homedir($user);
+        push @tomcat85_users, $user if -d "$homedir/ea-tomcat85" && !_tomcat85_dir_is_empty_or_apps_only("$homedir/ea-tomcat85");
     }
 
     return @tomcat85_users;
+}
+
+sub _tomcat85_dir_is_empty_or_apps_only {
+    my ($tomcat85_dir) = @_;
+    my @contents = Cpanel::SafeDir::Read::read_dir($tomcat85_dir);
+    return 1 if !@contents || ( -d "$tomcat85_dir/webapps" && @contents == 1 );
+    return;
 }
 
 1;

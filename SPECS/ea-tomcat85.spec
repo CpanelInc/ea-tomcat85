@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 10
+%define release_prefix 11
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -190,6 +190,9 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 
 %changelog
+* Tue Oct 16 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-11
+- ZC-4291: Preserve user’s apps on removal
+
 * Thu Oct 04 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-10
 - ZC-4319: Minor security improvements
 - ZC-4318: do not suppress errors from code run under dropped privileges
