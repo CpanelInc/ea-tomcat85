@@ -39,9 +39,9 @@ describe "private tomcat manager script" => sub {
         $conf{_homedir} = Path::Tiny->tempdir();
         no warnings "redefine", "once";
         local *Cpanel::Config::LoadUserDomains::loaduserdomains = sub { "user$$" => [], "us3r$$" => [], };
-        local *scripts::cpuser_service_manager::_get_homedir    = sub { $conf{_homedir} };
-        local *scripts::ea_tomcat85::_get_homedir               = sub { $conf{_homedir} };
-        local *Cpanel::AccessIds::do_as_user_with_exception     = sub { shift; shift->() };
+        local *scripts::cpuser_service_manager::_get_homedir = sub { my $hd = "$conf{_homedir}/$_[0]"; mkdir($hd) if !-d $hd; return $hd };
+        local *scripts::ea_tomcat85::_get_homedir = \&scripts::cpuser_service_manager::_get_homedir;
+        local *Cpanel::AccessIds::do_as_user_with_exception = sub { shift; shift->() };
         local $scripts::cpuser_port_authority::port_authority_conf = "$conf{_homedir}/pa_conf.json";
         use warnings "redefine", "once";
 
@@ -79,37 +79,33 @@ describe "private tomcat manager script" => sub {
         };
 
         it "`rem <USER>` without --verify should error out" => sub {
-            mkdir "$mi{_homedir}/ea-tomcat85";
+            path("$mi{_homedir}/user$$/ea-tomcat85/foo")->mkpath;
             modulino_run_trap( rem => "user$$" );
-            rmdir "$mi{_homedir}/ea-tomcat85";
             like $trap->{die}, qr/--verify/;
         };
 
         it "`rem <USER>` with --verify should error out" => sub {
-            mkdir "$mi{_homedir}/ea-tomcat85";
+            path("$mi{_homedir}/user$$/ea-tomcat85/foo")->mkpath;
             modulino_run_trap( rem => "user$$", "--verify" );
-            rmdir "$mi{_homedir}/ea-tomcat85";
             like $trap->{die}, qr/--verify/;
         };
 
         it "`rem <USER>` with --verify= should error out" => sub {
-            mkdir "$mi{_homedir}/ea-tomcat85";
+            path("$mi{_homedir}/user$$/ea-tomcat85/foo")->mkpath;
             modulino_run_trap( rem => "user$$", "--verify=" );
-            rmdir "$mi{_homedir}/ea-tomcat85";
             like $trap->{die}, qr/--verify/;
         };
 
         it "`rem <USER>` with --verify=NOT-USER should error out" => sub {
-            mkdir "$mi{_homedir}/ea-tomcat85";
+            path("$mi{_homedir}/user$$/ea-tomcat85/foo")->mkpath;
             modulino_run_trap( rem => "user$$", "--verify=derp" );
-            rmdir "$mi{_homedir}/ea-tomcat85";
             like $trap->{die}, qr/--verify/;
         };
 
         # happy path
         it "`add <USER>` should create ~/ea-tomcat85/" => sub {
             modulino_run_trap( add => "user$$" );
-            ok -d "$mi{_homedir}/ea-tomcat85";
+            ok -d "$mi{_homedir}/user$$/ea-tomcat85";
         };
 
         it "`add <USER>` should get ports" => sub {
@@ -129,7 +125,7 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should configure ports in server.xml" => sub {
             modulino_run_trap( add => "user$$" );
-            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
+            my $dom = XML::LibXML->load_xml( location => "$mi{_homedir}/user$$/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} ) = $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
 
@@ -149,8 +145,8 @@ describe "private tomcat manager script" => sub {
 
         it "`add <USER>` should setup a more secure default config" => sub {
             modulino_run_trap( add => "user$$" );
-            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
-            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/ea-tomcat85/conf/web.xml",    load_ext_dtd => 0, ext_ent_handler => sub { } );
+            my $srv = XML::LibXML->load_xml( location => "$mi{_homedir}/user$$/ea-tomcat85/conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
+            my $web = XML::LibXML->load_xml( location => "$mi{_homedir}/user$$/ea-tomcat85/conf/web.xml",    load_ext_dtd => 0, ext_ent_handler => sub { } );
             my %res;
             ( $res{shutdown_port} )        = $srv->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->getAttribute("port");
             ( $res{connector_xpoweredby} ) = $srv->findnodes("//Server/Service/Connector")->shift()->getAttribute("xpoweredBy");
@@ -164,6 +160,18 @@ describe "private tomcat manager script" => sub {
             is_deeply \%res, { shutdown_port => -1, connector_xpoweredby => "false", host_errorreportvalve => 1, host_autoDeploy => "false", host_deployOnStartup => "false", host_deployXML => "false" };
         };
 
+        it "`add <USER>` should add it when ~/ea-tomcat85 is empty" => sub {
+            path("$mi{_homedir}/user$$/ea-tomcat85")->mkpath;
+            modulino_run_trap( add => "user$$" );
+            is_deeply $system_calls->[4], [qw(ubic start ea-tomcat85)];
+        };
+
+        it "`add <USER>` should add it when ~/ea-tomcat85 is empty except for webapps/" => sub {
+            path("$mi{_homedir}/user$$/ea-tomcat85/webapps")->mkpath;
+            modulino_run_trap( add => "user$$" );
+            is_deeply $system_calls->[4], [qw(ubic start ea-tomcat85)];
+        };
+
         it "`list` should error out when given extra arguments" => sub {
             modulino_run_trap( "list", "--derp" );
             is( $trap->{die}, "“list” does not take any arguments\n" );
@@ -172,6 +180,25 @@ describe "private tomcat manager script" => sub {
         it "`list` should list multiple users one per line" => sub {
             modulino_run_trap( add => "user$$" );
             modulino_run_trap( add => "us3r$$" );
+
+            modulino_run_trap("list");
+            like $trap->{stdout}, qr/us3r$$\nuser$$\n/;
+        };
+
+        it "`list` should not list users w/ an empty ~/ea-tomcat85" => sub {
+            path("$mi{_homedir}/ohhai$$/ea-tomcat85")->mkpath;
+            modulino_run_trap( add => "user$$" );
+            modulino_run_trap( add => "us3r$$" );
+
+            modulino_run_trap("list");
+            like $trap->{stdout}, qr/us3r$$\nuser$$\n/;
+        };
+
+        it "`list` should not list users w/ a ~/ea-tomcat85 that is empty except for webapps/" => sub {
+            path("$mi{_homedir}/ohhai$$/ea-tomcat85/webapps")->mkpath;
+            modulino_run_trap( add => "user$$" );
+            modulino_run_trap( add => "us3r$$" );
+
             modulino_run_trap("list");
             like $trap->{stdout}, qr/us3r$$\nuser$$\n/;
         };
@@ -179,7 +206,7 @@ describe "private tomcat manager script" => sub {
         it "`rem <USER> --verify=<USER>` should remove ~/ea-tomcat85" => sub {
             modulino_run_trap( add => "user$$" );
             modulino_run_trap( rem => "user$$", "--verify=user$$" );
-            ok !-d "$mi{_homedir}/ea-tomcat85";
+            ok !-d "$mi{_homedir}/user$$/ea-tomcat85";
         };
 
         it "`rem <USER> --verify=<USER>` should stop tomcat" => sub {
@@ -197,13 +224,25 @@ describe "private tomcat manager script" => sub {
         };
 
         it "`add <USER>` should error out if user already has tomcat 8.5" => sub {
-            mkdir "$mi{_homedir}/ea-tomcat85";
+            path("$mi{_homedir}/user$$/ea-tomcat85/foo")->mkpath;
             modulino_run_trap( add => "user$$" );
             is $trap->{die}, "The user already has a tomcat 8.5 instance.\n";
         };
 
         it "`rem <USER> --verify=<USER>` should error out if user does not have tomcat" => sub {
             modulino_run_trap( rem => "user$$", "--verify='user$$'" );
+            is $trap->{die}, "The user does not have a tomcat 8.5 instance.\n";
+        };
+
+        it "`rem <USER>` should error out when ~/ea-tomcat85 is empty" => sub {
+            path("$mi{_homedir}/user$$/ea-tomcat85")->mkpath;
+            modulino_run_trap( rem => "user$$", "--verify" => "user$$" );
+            is $trap->{die}, "The user does not have a tomcat 8.5 instance.\n";
+        };
+
+        it "`rem <USER>` should error out when ~/ea-tomcat85 is empty except for webapps/" => sub {
+            path("$mi{_homedir}/user$$/ea-tomcat85/webapps")->mkpath;
+            modulino_run_trap( rem => "user$$", "--verify" => "user$$" );
             is $trap->{die}, "The user does not have a tomcat 8.5 instance.\n";
         };
 
@@ -237,7 +276,43 @@ describe "private tomcat manager script" => sub {
                 is_deeply $system_calls, [ [qw(ubic stop ea-tomcat85)], [qw(ubic stop ea-tomcat85)] ];
             };
 
-            it "should stop all users’ instance given `restart`" => sub {
+            it "should not stop users whose ~/ea-tomcat85 is empty given `stop`" => sub {
+                path("$mi{_homedir}/ohhai$$/ea-tomcat85")->mkpath;
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "stop" );
+                is_deeply $system_calls, [ [qw(ubic stop ea-tomcat85)], [qw(ubic stop ea-tomcat85)] ];
+            };
+
+            it "should not stop users whose  ~/ea-tomcat85 is empty except for webapps/ given `restart`" => sub {
+                path("$mi{_homedir}/ohhai$$/ea-tomcat85/webapps")->mkpath;
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "stop" );
+                is_deeply $system_calls, [ [qw(ubic stop ea-tomcat85)], [qw(ubic stop ea-tomcat85)] ];
+            };
+
+            it "should restart all users’ instance given `restart`" => sub {
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "restart" );
+                is_deeply $system_calls, [ [qw(ubic restart ea-tomcat85)], [qw(ubic restart ea-tomcat85)] ];
+            };
+
+            it "should not restart users whose ~/ea-tomcat85 is empty given `restart`" => sub {
+                path("$mi{_homedir}/ohhai$$/ea-tomcat85")->mkpath;
+                modulino_run_trap( add => "user$$" );
+                modulino_run_trap( add => "us3r$$" );
+                local $system_calls = [];
+                modulino_run_trap( "all", "restart" );
+                is_deeply $system_calls, [ [qw(ubic restart ea-tomcat85)], [qw(ubic restart ea-tomcat85)] ];
+            };
+
+            it "should not restart users whose  ~/ea-tomcat85 is empty except for webapps/ given `restart`" => sub {
+                path("$mi{_homedir}/ohhai$$/ea-tomcat85/webapps")->mkpath;
                 modulino_run_trap( add => "user$$" );
                 modulino_run_trap( add => "us3r$$" );
                 local $system_calls = [];
