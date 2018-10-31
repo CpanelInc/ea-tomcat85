@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 12
+%define release_prefix 13
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -105,6 +105,10 @@ else
     /usr/sbin/useradd -r -d /opt/cpanel/%{name} -s /sbin/nologin -g tomcat tomcat
 fi
 
+if [ -x "/usr/local/cpanel/scripts/ea-tomcat85" ]; then
+    /usr/local/cpanel/scripts/ea-tomcat85 all stop
+fi
+
 %build
 # empty build section
 
@@ -150,15 +154,14 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %clean
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf %{buildroot}
 
-%preun
 
-# upgrade and uninstall
+%preun
 /usr/local/cpanel/scripts/ea-tomcat85 all stop
 
-%post
-
-# upgrade (and install because ... spec files ... but it'll be a no-op if no one has it yet)
-/usr/local/cpanel/scripts/ea-tomcat85 all restart
+%posttrans
+if [ -x "/usr/local/cpanel/scripts/ea-tomcat85" ]; then
+    /usr/local/cpanel/scripts/ea-tomcat85 all restart
+fi
 
 %files
 %attr(0755,root,root) /usr/local/cpanel/scripts/ea-tomcat85
@@ -190,6 +193,10 @@ cp -r ./conf/* $RPM_BUILD_ROOT/opt/cpanel/ea-tomcat85/user-conf
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 
 %changelog
+* Tue Oct 30 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-13
+- ZC-4427: Fix cosmetic USER issue caused by Cpanel::AccessIds lack of setting ENV
+- Fix stop/restart scriptlet ordering
+
 * Mon Oct 22 2018 Cory McIntire <cory@cpanel.net> - 8.5.32-12
 - EA-7824: Move from EA4-experimental into EA4 production.
 

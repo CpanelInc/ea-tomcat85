@@ -249,6 +249,10 @@ sub _ubic_tc {
     $cp_bin_dir =~ s{/perl$}{};
     local $ENV{PATH} = "$cp_bin_dir:$ENV{PATH}";    # not only does this allow it to find our ubic-admin, it allows its env-shebang to pick up our perl
 
+    # This is necessary to reflect reality under start/restart since Cpanel::AccessIds does not reset ENV
+    #     - HOME is already set because other callers need it also
+    local $ENV{USER} = ( getpwuid($>) )[0];
+
     system( "ubic", $cmd, "ea-tomcat85" );
 
     return $? ? 0 : 1;
