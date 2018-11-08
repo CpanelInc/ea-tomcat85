@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 13
+%define release_prefix 14
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -192,7 +192,20 @@ fi
 %dir %attr(0770,root,tomcat) /var/run/ea-tomcat85
 %ghost %attr(0640,tomcat,tomcat) /var/run/ea-tomcat85/catalina.pid
 
+%post
+
+# This is will ensure that "Tomcat Manager" appears in the left menu in the UI
+/usr/local/cpanel/scripts/rebuild_whm_chrome
+
+%postun
+
+# This is will ensure that "Tomcat Manager" no longer appears in the left menu in the UI
+/usr/local/cpanel/scripts/rebuild_whm_chrome
+
 %changelog
+* Thu Nov 08 2018 Tim Mullin <tim@cpanel.net> - 8.5.32-14
+- EA-7998: Ensure "Tomcat Manager" appears and is searchable in left menu
+
 * Tue Oct 30 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-13
 - ZC-4427: Fix cosmetic USER issue caused by Cpanel::AccessIds lack of setting ENV
 - Fix stop/restart scriptlet ordering
