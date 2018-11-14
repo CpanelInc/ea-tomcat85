@@ -205,10 +205,13 @@ sub rem {
         die "This operation can not be undone, please pass the --verify=<USER> to indicate you’ve backed up anything in $homedir/ea-tomcat85/ that you want to keep!\n";
     }
 
+    my $curdir = Cwd::cwd();
     Cpanel::AccessIds::do_as_user_with_exception(
         $user,
         sub {
             local $ENV{HOME} = $homedir;
+            chdir $homedir or die "Could not change into “$homedir”: $!\n";
+
             my $orig_umask = umask(0027);
             _ubic_tc("stop");
             _sysdie( "remove service management" => qw(/usr/local/cpanel/scripts/cpuser_service_manager rem ea-tomcat85) );
@@ -231,6 +234,7 @@ sub rem {
         }
     );
 
+    chdir $curdir or warn "Could not chdir back to “$curdir”: $!\n";
     print " … done!\n";
 
     return;
