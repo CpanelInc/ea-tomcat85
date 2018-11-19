@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.32
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 15
+%define release_prefix 16
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -203,6 +203,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Mon Nov 19 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-16
+- ZC-4478: Show error from port authority for clarity
+
 * Wed Nov 14 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-15
 - ZC-4462: work around chdir-for-security w/ dropped privs issue
 
