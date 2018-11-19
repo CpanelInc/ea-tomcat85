@@ -321,6 +321,7 @@ sub _get_ports {
 
         if ($exit) {
             my $cmd = join( " ", @cmd );
+            $stderr =~ s{\[\?1034h}{};
             die "$stderr\nFailed to allocate ports!\n`$cmd` exited $exit\n";
         }
         else {
