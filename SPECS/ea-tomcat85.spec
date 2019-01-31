@@ -22,14 +22,14 @@
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
-Version: 8.5.32
+Version: 8.5.37
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 16
+%define release_prefix 1
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
 URL: http://tomcat.apache.org/
-Source0: http://mirror.olnevhost.net/pub/apache/tomcat/tomcat-8/v8.5.32/bin/apache-tomcat-8.5.32.tar.gz
+Source0: https://www-eu.apache.org/dist/tomcat/tomcat-8/v8.5.37/bin/apache-tomcat-8.5.37.tar.gz
 Source1: setenv.sh
 Source2: sample.ea-tomcat85.logrotate
 Source3: sample.ea-tomcat85.service
@@ -203,6 +203,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Wed Jan 30 2019 Tim Mullin <tim@cpanel.net> - 8.5.37-1
+- EA-8186: Update to 8.5.37
+
 * Mon Nov 19 2018 Daniel Muey <dan@cpanel.net> - 8.5.32-16
 - ZC-4478: Show error from port authority for clarity
 
