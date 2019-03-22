@@ -129,7 +129,7 @@ sub add {
                 '/opt/cpanel/ea-tomcat85/README.USER-INSTANCE'           => 'README.USER-INSTANCE',
             );
             for my $target ( keys %symlinks ) {
-                symlink( $target, $symlinks{$target} ) or die "Could not symlink “$symlinks{$target}” to “$target”: $!\n";
+                symlink( $target, $symlinks{$target} ) or warn "Could not symlink “$symlinks{$target}” to “$target”: $!\n";
             }
 
             my $data_start = tell DATA;
