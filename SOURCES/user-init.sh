@@ -11,7 +11,7 @@ ERROR=0
 case $1 in
     start)
         pid=$(tomcat_pid)
-        if [ -n "$pid" ] && [ ps --pid $pid 2>&1 1>/dev/null ]; then
+        if [ -n "$pid" ] && ps --pid $pid 2>&1 1>/dev/null; then
             echo -e "\e[00;33mTomcat is already running (pid: $pid)\e[00m"
             ERROR=1
         else
@@ -27,9 +27,9 @@ case $1 in
             /opt/cpanel/ea-tomcat85/bin/user-shutdown.sh
         fi
         ;;
-    restart|force-reload)
+    restart|force-reload|reload)
         pid=$(tomcat_pid)
-        if [ -n "$pid" && ps --pid $pid 2>&1 1>/dev/null ]; then
+        if [ -n "$pid" ] && ps --pid $pid 2>&1 1>/dev/null; then
             /opt/cpanel/ea-tomcat85/bin/user-shutdown.sh
         fi
 
