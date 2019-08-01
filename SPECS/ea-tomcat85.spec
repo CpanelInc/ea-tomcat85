@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.40
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 1
+%define release_prefix 2
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -203,6 +203,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Wed Jul 31 2019 Tim Mullin <tim@cpanel.net> - 8.5.40-2
+- EA-8590: Fix syntax errors in user-init.sh
+
 * Wed May 08 2019 Tim Mullin <tim@cpanel.net> - 8.5.40-1
 - EA-8240: Update to 8.5.40
 
