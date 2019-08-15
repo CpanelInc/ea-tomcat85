@@ -1,0 +1,62 @@
+#!/usr/local/cpanel/3rdparty/bin/perl
+# cpanel - find-latest-version                  Copyright(c) 2019 cPanel, L.L.C.
+#                                                           All rights Reserved.
+# copyright@cpanel.net                                         http://cpanel.net
+# This code is subject to the cPanel license. Unauthorized copying is prohibited
+#
+# This provides incremental updates to existing packages in EasyApache4.
+package ea_tomcat85::find_latest_version;
+
+use strict;
+use warnings;
+
+use lib "../ea-tools/lib/ea4_tool";    # assumes ea-tools is checked out next to this repo
+use ea4_tool::util ();
+
+unless ( caller() ) {
+    ea4_tool::util::find_latest_version( \&_get_required, \&_add_sum );
+}
+
+###############
+#### helpers ##
+###############
+
+sub _get_required {
+    my ($http) = @_;
+
+    my $res = $http->get("https://tomcat.apache.org/download-80.cgi");
+    if ( !$res->{success} ) {
+        die "Could not GET tomcat85 dist page ($res->{status} $res->{reason})\n";
+    }
+
+    my @tomcat85 = ( $res->{content} =~ m{8\.5\.[0-9][0-9]+}g );
+    if ( !@tomcat85 ) {
+        die "Could not find tomcat85 versions\n";
+    }
+
+    my $version = "$tomcat85[0]";
+    my $name    = "apache-tomcat-$version.tar.gz";
+    my $url     = "http://www.gtlib.gatech.edu/pub/apache/tomcat/tomcat-8/v$version/bin/$name";
+    return ( $version, $url, $name );
+}
+
+sub _add_sum {
+    my ( $http, $hr ) = @_;
+
+    my $checksum_url = "https://www.apache.org/dist/tomcat/tomcat-8/v$hr->{version}/bin/$hr->{tarball}{name}.sha512";
+    my $res          = $http->get($checksum_url);
+    if ( !$res->{success} ) {
+        die "Could not GET tomcat85 SHASUMS page ($res->{status} $res->{reason})\n";
+    }
+
+    my $name     = $hr->{tarball}{name};
+    my $checksum = ( $res->{content} =~ /^((?i)[0-9a-f]+)\s+\Q*$name\E$/m )[0];
+    unless ($checksum) {
+        die "No checksum for $name at $checksum_url:\nContent: $res->{content}\n";
+    }
+
+    $hr->{tarball}{sum}{hex}  = $checksum;
+    $hr->{tarball}{sum}{type} = "sha512";
+
+    return;
+}
