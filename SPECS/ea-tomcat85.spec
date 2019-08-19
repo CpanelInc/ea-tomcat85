@@ -29,7 +29,7 @@ Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
 URL: http://tomcat.apache.org/
-Source0: https://www-us.apache.org/dist/tomcat/tomcat-8/v8.5.40/bin/apache-tomcat-8.5.40.tar.gz
+Source0: https://www-us.apache.org/dist/tomcat/tomcat-8/v8.5.40/bin/apache-tomcat-8.5.43.tar.gz
 Source1: setenv.sh
 Source2: sample.ea-tomcat85.logrotate
 Source3: sample.ea-tomcat85.service
