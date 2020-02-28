@@ -142,6 +142,7 @@ sub add {
             my $dom = XML::LibXML->load_xml( location => "conf/server.xml", load_ext_dtd => 0, ext_ent_handler => sub { } );
             $dom->findnodes('//Server[@shutdown="SHUTDOWN"]')->shift()->setAttribute( port => -1 );    # disable the shutdown port
 
+            my $ajp_connector_exists = 0;
             for my $conn ( $dom->findnodes("//Server/Service/Connector") ) {
 
                 # hide version exposure
@@ -159,7 +160,20 @@ sub add {
                 elsif ( $conn->getAttribute('protocol') eq 'AJP/1.3' ) {
                     $conn->setAttribute( port => $ajp_port );
                     $conn->removeAttribute('redirectPort');
+                    $conn->setAttribute( secretRequired => "false" );
+                    $ajp_connector_exists = 1;
                 }
+            }
+
+            if ( !$ajp_connector_exists ) {
+
+                # Create <Connector port="10001" protocol="AJP/1.3" xpoweredBy="false"/>
+                my $ajp = $dom->createElement('Connector');
+                $ajp->setAttribute( port           => $ajp_port );
+                $ajp->setAttribute( protocol       => 'AJP/1.3' );
+                $ajp->setAttribute( xpoweredBy     => "false" );
+                $ajp->setAttribute( secretRequired => "false" );
+                $dom->findnodes('//Server/Service[@name="Catalina"]')->shift()->addChild($ajp);
             }
 
             my $valve = $dom->createElement("Valve");
