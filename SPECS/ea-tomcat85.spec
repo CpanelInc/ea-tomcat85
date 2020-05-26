@@ -19,6 +19,10 @@
 %global with_systemd 0
 %endif
 
+%if 0%{?rhel} >= 8
+%global debug_package %{nil}
+%endif
+
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
