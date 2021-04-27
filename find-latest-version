@@ -36,7 +36,7 @@ sub _get_required {
 
     my $version = "$tomcat85[0]";
     my $name    = "apache-tomcat-$version.tar.gz";
-    my $url     = "http://www.gtlib.gatech.edu/pub/apache/tomcat/tomcat-8/v$version/bin/$name";
+    my $url     = "https://downloads.apache.org/tomcat/tomcat-8/v$version/bin/$name";
     return ( $version, $url, $name );
 }
 
