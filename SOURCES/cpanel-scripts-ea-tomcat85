@@ -185,11 +185,12 @@ sub add {
                 # hide version exposure: Create a ErrorReportValve w/ showServerInfo and showReport attributes to false
                 $host->addChild($valve);
 
-                # Host – autoDeploy, deployOnStartup, and deployXML false
+                # Host – autoDeploy, deployOnStartup, unpackWARs, and deployXML false
                 #   - FWiW, ASF does exploded deploys instead of ^^^
                 $host->setAttribute( autoDeploy      => "false" );
                 $host->setAttribute( deployOnStartup => "false" );
                 $host->setAttribute( deployXML       => "false" );
+                $host->setAttribute( unpackWARs      => "false" );
             }
 
             _write_dom( "conf/server.xml" => $dom );

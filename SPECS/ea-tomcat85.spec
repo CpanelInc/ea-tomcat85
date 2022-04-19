@@ -28,7 +28,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.78
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 1
+%define release_prefix 2
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -207,6 +207,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Thu Apr 07 2022 Dan Muey <dan@cpanel.net> - 8.5.78-2
+- ZC-9892: Set `unpackWARs` to false initially
+
 * Fri Apr 01 2022 Cory McIntire <cory@cpanel.net> - 8.5.78-1
 - EA-10604: Update ea-tomcat85 from v8.5.77 to v8.5.78
 
