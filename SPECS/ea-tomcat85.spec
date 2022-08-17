@@ -26,7 +26,7 @@
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
-Version: 8.5.81
+Version: 8.5.82
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
 %define release_prefix 1
 Release: %{release_prefix}%{?dist}.cpanel
@@ -207,6 +207,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Mon Aug 15 2022 Cory McIntire <cory@cpanel.net> - 8.5.82-1
+- EA-10878: Update ea-tomcat85 from v8.5.81 to v8.5.82
+
 * Mon Jun 13 2022 Cory McIntire <cory@cpanel.net> - 8.5.81-1
 - EA-10761: Update ea-tomcat85 from v8.5.79 to v8.5.81
 
