@@ -22,7 +22,7 @@
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
-Version: 8.5.93
+Version: 8.5.94
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
 %define release_prefix 1
 Release: %{release_prefix}%{?dist}.cpanel
@@ -203,8 +203,16 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Tue Oct 10 2023 Cory McIntire <cory@cpanel.net> - 8.5.94-1
+- EA-11728: Update ea-tomcat85 from v8.5.93 to v8.5.94
+- Request smuggling CVE-2023-45648
+- Denial of Service CVE-2023-44487
+- Information Disclosure CVE-2023-42795
+- Denial of Service CVE-2023-42794
+
 * Mon Aug 28 2023 Cory McIntire <cory@cpanel.net> - 8.5.93-1
 - EA-11635: Update ea-tomcat85 from v8.5.92 to v8.5.93
+- Open redirect CVE-2023-41080
 
 * Mon Aug 14 2023 Cory McIntire <cory@cpanel.net> - 8.5.92-1
 - EA-11607: Update ea-tomcat85 from v8.5.91 to v8.5.92
@@ -220,30 +228,37 @@ fi
 
 * Mon May 22 2023 Cory McIntire <cory@cpanel.net> - 8.5.89-1
 - EA-11428: Update ea-tomcat85 from v8.5.88 to v8.5.89
+- Information disclosure CVE-2023-34981
 
 * Tue May 09 2023 Brian Mendoza <brian.mendoza@cpanel.net> - 8.5.88-2
 - ZC-10936: Clean up Makefile and remove debug-package-nil
 
 * Thu Apr 20 2023 Cory McIntire <cory@cpanel.net> - 8.5.88-1
 - EA-11369: Update ea-tomcat85 from v8.5.87 to v8.5.88
+- Apache Tomcat denial of service CVE-2023-28709
 
 * Mon Mar 06 2023 Cory McIntire <cory@cpanel.net> - 8.5.87-1
 - EA-11283: Update ea-tomcat85 from v8.5.86 to v8.5.87
 
 * Mon Feb 27 2023 Cory McIntire <cory@cpanel.net> - 8.5.86-1
 - EA-11270: Update ea-tomcat85 from v8.5.85 to v8.5.86
+- Apache Tomcat information disclosure CVE-2023-28708
 
 * Fri Jan 20 2023 Cory McIntire <cory@cpanel.net> - 8.5.85-1
 - EA-11177: Update ea-tomcat85 from v8.5.84 to v8.5.85
+- Apache Tomcat denial of service CVE-2023-24998
 
 * Thu Nov 24 2022 Cory McIntire <cory@cpanel.net> - 8.5.84-1
 - EA-11072: Update ea-tomcat85 from v8.5.83 to v8.5.84
+- Apache Tomcat JsonErrorReportValve injection CVE-2022-45143
 
 * Tue Oct 11 2022 Cory McIntire <cory@cpanel.net> - 8.5.83-1
 - EA-10980: Update ea-tomcat85 from v8.5.82 to v8.5.83
+- Apache Tomcat request smuggling CVE-2022-42252
 
 * Mon Aug 15 2022 Cory McIntire <cory@cpanel.net> - 8.5.82-1
 - EA-10878: Update ea-tomcat85 from v8.5.81 to v8.5.82
+- Apache Tomcat XSS in examples web application CVE-2022-34305
 
 * Mon Jun 13 2022 Cory McIntire <cory@cpanel.net> - 8.5.81-1
 - EA-10761: Update ea-tomcat85 from v8.5.79 to v8.5.81
