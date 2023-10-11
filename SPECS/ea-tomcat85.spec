@@ -24,7 +24,7 @@ Vendor:  cPanel, Inc.
 Summary: Tomcat 8.5
 Version: 8.5.94
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 1
+%define release_prefix 2
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
@@ -209,6 +209,9 @@ fi
 - Denial of Service CVE-2023-44487
 - Information Disclosure CVE-2023-42795
 - Denial of Service CVE-2023-42794
+
+* Fri Oct 06 2023 Travis Holloway <t.holloway@cpanel.net> - 8.5.93-2
+- EA-11593: Update dead faster start up link
 
 * Mon Aug 28 2023 Cory McIntire <cory@cpanel.net> - 8.5.93-1
 - EA-11635: Update ea-tomcat85 from v8.5.92 to v8.5.93
