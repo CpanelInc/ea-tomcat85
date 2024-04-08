@@ -21,14 +21,14 @@
 
 Name:    ea-tomcat85
 Vendor:  cPanel, Inc.
-Summary: Tomcat 8.5
+Summary: EOL Tomcat 8.5
 Version: 8.5.100
 # Doing release_prefix this way for Release allows for OBS-proof versioning, See EA-4572 for more details
-%define release_prefix 1
+%define release_prefix 2
 Release: %{release_prefix}%{?dist}.cpanel
 License: Apache License, 2.0
 Group:   System Environment/Daemons
-URL: http://tomcat.apache.org/
+URL: https://endoflife.date/tomcat
 Source0: https://www-us.apache.org/dist/tomcat/tomcat-8/v%{version}/bin/apache-tomcat-%{version}.tar.gz
 Source1: setenv.sh
 Source2: sample.ea-tomcat85.logrotate
@@ -78,6 +78,8 @@ Requires(postun): /sbin/service
 Requires(pre):  shadow-utils
 
 %description
+tomcat 8.5 has reached End of Life.
+
 Tomcat is the servlet container that is used in the official Reference
 Implementation for the Java Servlet and JavaServer Pages technologies.
 The Java Servlet and JavaServer Pages specifications are developed by
@@ -203,6 +205,9 @@ fi
 /usr/local/cpanel/scripts/rebuild_whm_chrome
 
 %changelog
+* Tue Apr 02 2024 Cory McIntire <cory@cpanel.net> - 8.5.100-2
+- EA-11588: Mark ea-tomcat85 as EOL
+
 * Mon Mar 25 2024 Cory McIntire <cory@cpanel.net> - 8.5.100-1
 - EA-12039: Update ea-tomcat85 from v8.5.99 to v8.5.100
 
